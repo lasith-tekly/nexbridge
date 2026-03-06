@@ -1,6 +1,7 @@
 export type Decision = 'GO' | 'HOLD' | 'ESCALATE';
 export type AgentStatus = 'idle' | 'running' | 'complete' | 'hold' | 'error';
 export type Tier = 1 | 2 | 3 | 4;
+export type Scenario = 'GO' | 'HOLD';
 
 export interface TransformResponse {
   status: Decision;
