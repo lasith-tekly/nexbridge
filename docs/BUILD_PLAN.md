@@ -63,13 +63,13 @@ Update the status column as each step is completed.
 | 1.10 | LandingPage.tsx — empty shell | src/pages/LandingPage.tsx | @FrontendDeveloper | ✅ |
 | 1.11 | ConfigurePage.tsx — empty shell | src/pages/ConfigurePage.tsx | @FrontendDeveloper | ✅ |
 | 1.12 | PipelinePage.tsx — empty shell | src/pages/PipelinePage.tsx | @FrontendDeveloper | ✅ |
-| 1.13 | ResultPage.tsx — empty shell | src/pages/ResultPage.tsx | @FrontendDeveloper | 🟡 |
+| 1.13 | ResultPage.tsx — empty shell | src/pages/ResultPage.tsx | @FrontendDeveloper | ✅ |
 
 ### Foundation Components
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 1.14 | TierBadge.tsx | src/components/TierBadge.tsx | @FrontendDeveloper | ⚪ |
+| 1.14 | TierBadge.tsx | src/components/TierBadge.tsx | @FrontendDeveloper | 🟡 |
 | 1.15 | ConfidenceBar.tsx | src/components/ConfidenceBar.tsx | @FrontendDeveloper | ⚪ |
 | 1.16 | ScenarioToggle.tsx | src/components/ScenarioToggle.tsx | @FrontendDeveloper | ⚪ |
 | 1.17 | DecisionBadge.tsx | src/components/DecisionBadge.tsx | @FrontendDeveloper | ⚪ |

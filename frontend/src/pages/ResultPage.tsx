@@ -1,31 +1,120 @@
 import React from 'react'
-import type { TransformResponse } from '@/types/nexbridge.types'
+import type { Scenario } from '@/types/nexbridge.types'
 
 interface ResultPageProps {
-  onNext: () => void;
   onBack: () => void;
-  transformResult: TransformResponse | null;
+  onRestart: () => void;
+  scenario: Scenario;
 }
+
+const GO_XML = `<record>
+  <employee_id>E-12345</employee_id>
+  <department>Operations</department>
+  <start_date>2024-03-01</start_date>
+  <contract_type>FULL_TIME</contract_type>
+  <office_location>London</office_location>
+</record>`
+
+const HOLD_XML = `<record>
+  <employee_id>E-12345</employee_id>
+  <department>Operations</department>
+  <weight_limit>250</weight_limit>
+  <equipment_class>HEAVY</equipment_class>
+  <clearance_level>L3</clearance_level>
+</record>`
+
+const GO_JSON = `{
+  "id": "E-12345",
+  "dept_code": "OPS",
+  "start_date": "2024-03-01",
+  "emp_type": "FULL_TIME",
+  "location": "London"
+}`
 
 export const ResultPage: React.FC<ResultPageProps> = ({
   onBack,
-  transformResult
+  onRestart,
+  scenario
 }) => {
   return (
-    <div className="min-h-[calc(100vh-120px)] px-4 py-8">
+    <div className="min-h-[calc(100vh-120px)] bg-gray-950 px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-white mb-8">Transformation Result</h1>
-
-        <div className="bg-gray-900 rounded-lg border border-gray-800 p-8 mb-8">
-          <p className="text-gray-400 mb-6">
-            Result page content placeholder. This will show the final decision,
-            transformed JSON, and audit log.
-          </p>
-          {transformResult && (
-            <p className="text-gray-500 text-sm">
-              Decision: <span className="text-white font-semibold">{transformResult.status}</span>
+        {scenario === 'GO' ? (
+          <div className="bg-green-900 border border-green-700 rounded-xl p-8 mb-8 text-center">
+            <div className="text-green-400 text-3xl font-bold mb-2">✓ GO</div>
+            <p className="text-green-300 text-lg mb-2">
+              Transformation complete — payload released
             </p>
-          )}
+            <p className="text-green-500 text-sm">
+              5 fields mapped · Processed in 2.1s
+            </p>
+          </div>
+        ) : (
+          <div className="bg-red-900 border border-red-700 rounded-xl p-8 mb-8 text-center">
+            <div className="text-red-400 text-3xl font-bold mb-2">⚠ HOLD</div>
+            <p className="text-red-300 text-lg mb-2">
+              Payload not released — human review required
+            </p>
+            <p className="text-red-500 text-sm">
+              T1 field: dual interpreter outputs diverged
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div>
+            <h2 className="text-xl font-semibold text-white mb-4">
+              System A — Original XML
+            </h2>
+            <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+              <pre className="text-green-400 font-mono text-sm whitespace-pre-wrap">
+                {scenario === 'GO' ? GO_XML : HOLD_XML}
+              </pre>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-semibold text-white mb-4">
+              System B — Transformed JSON
+            </h2>
+            {scenario === 'GO' ? (
+              <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+                <pre className="text-blue-400 font-mono text-sm whitespace-pre-wrap">
+                  {GO_JSON}
+                </pre>
+              </div>
+            ) : (
+              <div className="bg-gray-900 border border-red-800 rounded-lg p-4 text-center">
+                <p className="text-red-400 font-semibold mb-2">
+                  — Payload not released —
+                </p>
+                <p className="text-gray-500 text-sm">
+                  NexBridge blocked this transformation. Human review required before retry.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-white mb-4">Audit Log</h2>
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+            <div className="font-mono text-sm text-gray-400 space-y-2">
+              <div>▼ employee_id    T3  →  id            0.98  mapped</div>
+              <div>▼ department     T3  →  dept_code     0.87  mapped</div>
+              {scenario === 'GO' ? (
+                <>
+                  <div>▼ start_date     T3  →  start_date    0.95  mapped</div>
+                  <div>▼ ORCHESTRATOR   T2  →  GO            —     released</div>
+                </>
+              ) : (
+                <>
+                  <div>▼ weight_limit   T1  →  blocked       0.87  diverged</div>
+                  <div>▼ ORCHESTRATOR   T1  →  HOLD          —     blocked</div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-between">
@@ -33,13 +122,13 @@ export const ResultPage: React.FC<ResultPageProps> = ({
             onClick={onBack}
             className="bg-gray-800 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
           >
-            ← Back to Pipeline
+            ← Try another scenario
           </button>
           <button
-            onClick={() => window.location.reload()}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+            onClick={onRestart}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
           >
-            Start Over
+            Start over
           </button>
         </div>
       </div>

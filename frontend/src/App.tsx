@@ -4,12 +4,11 @@ import { LandingPage } from '@/pages/LandingPage'
 import { ConfigurePage } from '@/pages/ConfigurePage'
 import { PipelinePage } from '@/pages/PipelinePage'
 import { ResultPage } from '@/pages/ResultPage'
-import type { Scenario, TransformResponse } from '@/types/nexbridge.types'
+import type { Scenario } from '@/types/nexbridge.types'
 
 const App: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(1)
   const [scenario, setScenario] = useState<Scenario>('GO')
-  const [transformResult, setTransformResult] = useState<TransformResponse | null>(null)
 
   const handleNext = () => {
     if (currentStep < 4) {
@@ -23,10 +22,15 @@ const App: React.FC = () => {
     }
   }
 
+  const handleRestart = () => {
+    setCurrentStep(1)
+    setScenario('GO')
+  }
+
   const renderPage = () => {
     switch (currentStep) {
       case 1:
-        return <LandingPage onNext={handleNext} onBack={handleBack} />
+        return <LandingPage onNext={handleNext} />
       case 2:
         return (
           <ConfigurePage
@@ -42,20 +46,18 @@ const App: React.FC = () => {
             onNext={handleNext}
             onBack={handleBack}
             scenario={scenario}
-            transformResult={transformResult}
-            setTransformResult={setTransformResult}
           />
         )
       case 4:
         return (
           <ResultPage
-            onNext={handleNext}
             onBack={handleBack}
-            transformResult={transformResult}
+            onRestart={handleRestart}
+            scenario={scenario}
           />
         )
       default:
-        return <LandingPage onNext={handleNext} onBack={handleBack} />
+        return <LandingPage onNext={handleNext} />
     }
   }
 
