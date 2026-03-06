@@ -60,7 +60,7 @@ Update the status column as each step is completed.
 |---|---|---|---|---|
 | 1.08 | App.tsx — 4-step flow + state management | src/App.tsx | @FrontendDeveloper | ✅ |
 | 1.09 | ProgressBar.tsx — step indicator | src/components/ProgressBar.tsx | @FrontendDeveloper | ✅ |
-| 1.10 | LandingPage.tsx — empty shell | src/pages/LandingPage.tsx | @FrontendDeveloper | 🟡 |
+| 1.10 | LandingPage.tsx — empty shell | src/pages/LandingPage.tsx | @FrontendDeveloper | ✅ |
 | 1.11 | ConfigurePage.tsx — empty shell | src/pages/ConfigurePage.tsx | @FrontendDeveloper | 🟡 |
 | 1.12 | PipelinePage.tsx — empty shell | src/pages/PipelinePage.tsx | @FrontendDeveloper | 🟡 |
 | 1.13 | ResultPage.tsx — empty shell | src/pages/ResultPage.tsx | @FrontendDeveloper | 🟡 |
