@@ -13,7 +13,7 @@ const steps = [
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({ currentStep }) => {
   return (
-    <div className="bg-gray-900 border-b border-gray-800 px-8 py-6">
+    <div className="bg-gray-900 border-b border-gray-800 px-8 py-4">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between">
           {steps.map((step, index) => (
@@ -28,11 +28,15 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ currentStep }) => {
                       : 'bg-gray-700 text-gray-400'
                   }`}
                 >
-                  {step.number}
+                  {step.number < currentStep ? '✓' : step.number}
                 </div>
                 <span
-                  className={`mt-2 text-sm font-medium ${
-                    step.number <= currentStep ? 'text-white' : 'text-gray-500'
+                  className={`mt-2 text-sm ${
+                    step.number === currentStep
+                      ? 'text-white font-bold'
+                      : step.number < currentStep
+                      ? 'text-green-400 font-medium'
+                      : 'text-gray-500 font-medium'
                   }`}
                 >
                   {step.label}
