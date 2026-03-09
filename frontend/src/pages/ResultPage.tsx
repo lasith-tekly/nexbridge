@@ -1,4 +1,5 @@
 import React from 'react'
+import { DecisionBadge } from '@/components/DecisionBadge'
 import type { Scenario } from '@/types/nexbridge.types'
 
 interface ResultPageProps {
@@ -40,26 +41,20 @@ export const ResultPage: React.FC<ResultPageProps> = ({
     <div className="min-h-[calc(100vh-120px)] bg-gray-950 px-4 py-8">
       <div className="max-w-6xl mx-auto">
         {scenario === 'GO' ? (
-          <div className="bg-green-900 border border-green-700 rounded-xl p-8 mb-8 text-center">
-            <div className="text-green-400 text-3xl font-bold mb-2">✓ GO</div>
-            <p className="text-green-300 text-lg mb-2">
-              Transformation complete — payload released
-            </p>
-            <p className="text-green-500 text-sm">
-              5 fields mapped · Processed in 2.1s
-            </p>
-          </div>
+          <DecisionBadge
+            decision="GO"
+            reason="Transformation complete — payload released"
+            detail="5 fields mapped"
+            processingTimeMs={2100}
+          />
         ) : (
-          <div className="bg-red-900 border border-red-700 rounded-xl p-8 mb-8 text-center">
-            <div className="text-red-400 text-3xl font-bold mb-2">⚠ HOLD</div>
-            <p className="text-red-300 text-lg mb-2">
-              Payload not released — human review required
-            </p>
-            <p className="text-red-500 text-sm">
-              T1 field: dual interpreter outputs diverged
-            </p>
-          </div>
+          <DecisionBadge
+            decision="HOLD"
+            reason="Payload not released — human review required"
+            detail="T1 field: dual interpreter outputs diverged"
+          />
         )}
+        <div className="mb-8" />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div>
