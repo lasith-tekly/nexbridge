@@ -71,8 +71,8 @@ Update the status column as each step is completed.
 |---|---|---|---|---|
 | 1.14 | TierBadge.tsx | src/components/TierBadge.tsx | @FrontendDeveloper | ✅ |
 | 1.15 | ConfidenceBar.tsx | src/components/ConfidenceBar.tsx | @FrontendDeveloper | ✅ |
-| 1.16 | ScenarioToggle.tsx | src/components/ScenarioToggle.tsx | @FrontendDeveloper | 🟡 |
-| 1.17 | DecisionBadge.tsx | src/components/DecisionBadge.tsx | @FrontendDeveloper | ⚪ |
+| 1.16 | ScenarioToggle.tsx | src/components/ScenarioToggle.tsx | @FrontendDeveloper | ✅ |
+| 1.17 | DecisionBadge.tsx | src/components/DecisionBadge.tsx | @FrontendDeveloper | 🟡 |
 
 ### Page Content — Step 1
 
