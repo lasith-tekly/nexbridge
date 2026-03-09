@@ -78,13 +78,13 @@ Update the status column as each step is completed.
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 1.18 | LandingPage.tsx — full content | src/pages/LandingPage.tsx | @FrontendDeveloper | 🟡 |
+| 1.18 | LandingPage.tsx — full content | src/pages/LandingPage.tsx | @FrontendDeveloper | ✅ |
 
 ### Page Content — Step 2
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 1.19 | XmlViewer.tsx | src/components/XmlViewer.tsx | @FrontendDeveloper | ⚪ |
+| 1.19 | XmlViewer.tsx | src/components/XmlViewer.tsx | @FrontendDeveloper | 🟡 |
 | 1.20 | JsonViewer.tsx | src/components/JsonViewer.tsx | @FrontendDeveloper | ⚪ |
 | 1.21 | ConfigurePage.tsx — full content | src/pages/ConfigurePage.tsx | @FrontendDeveloper | ⚪ |
 
