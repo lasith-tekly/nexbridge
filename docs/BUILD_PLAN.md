@@ -85,8 +85,8 @@ Update the status column as each step is completed.
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
 | 1.19 | XmlViewer.tsx | src/components/XmlViewer.tsx | @FrontendDeveloper | ✅ |
-| 1.20 | JsonViewer.tsx | src/components/JsonViewer.tsx | @FrontendDeveloper | 🟡 |
-| 1.21 | ConfigurePage.tsx — full content | src/pages/ConfigurePage.tsx | @FrontendDeveloper | ⚪ |
+| 1.20 | JsonViewer.tsx | src/components/JsonViewer.tsx | @FrontendDeveloper | ✅ |
+| 1.21 | ConfigurePage.tsx — full content | src/pages/ConfigurePage.tsx | @FrontendDeveloper | 🟡 |
 
 ### Page Content — Step 3
 
