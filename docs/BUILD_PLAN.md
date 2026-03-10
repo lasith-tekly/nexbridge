@@ -93,13 +93,13 @@ Update the status column as each step is completed.
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
 | 1.22 | AgentCard.tsx | src/components/AgentCard.tsx | @FrontendDeveloper | ✅ |
-| 1.23 | PipelinePage.tsx — full content + animation | src/pages/PipelinePage.tsx | @FrontendDeveloper | 🟡 |
+| 1.23 | PipelinePage.tsx — full content + animation | src/pages/PipelinePage.tsx | @FrontendDeveloper | ✅ |
 
 ### Page Content — Step 4
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 1.24 | AuditLog.tsx | src/components/AuditLog.tsx | @FrontendDeveloper | ⚪ |
+| 1.24 | AuditLog.tsx | src/components/AuditLog.tsx | @FrontendDeveloper | 🟡 |
 | 1.25 | DivergenceDetail.tsx | src/components/DivergenceDetail.tsx | @FrontendDeveloper | ⚪ |
 | 1.26 | ResultPage.tsx — full content | src/pages/ResultPage.tsx | @FrontendDeveloper | ⚪ |
 
