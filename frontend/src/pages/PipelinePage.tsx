@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { AgentCard } from '@/components/AgentCard'
 import type { Scenario, AgentStatus, FieldMapping, DivergenceDetail } from '@/types/nexbridge.types'
 
@@ -16,12 +16,12 @@ interface AgentStep {
 }
 
 const AGENT_STEPS: AgentStep[] = [
-  { id: 1, agentName: 'Classification', durationMs: 600 },
-  { id: 2, agentName: 'Interpreter — Run 1', durationMs: 900 },
-  { id: 3, agentName: 'Interpreter — Run 2', subtitle: 'T1 only', durationMs: 900 },
+  { id: 1, agentName: 'Classification', durationMs: 500 },
+  { id: 2, agentName: 'Interpreter — Run 1', durationMs: 800 },
+  { id: 3, agentName: 'Interpreter — Run 2', subtitle: 'T1 only', durationMs: 800 },
   { id: 4, agentName: 'Validator', durationMs: 400 },
   { id: 5, agentName: 'Translator', durationMs: 300 },
-  { id: 6, agentName: 'Orchestrator Decision', durationMs: 200 },
+  { id: 6, agentName: 'Orchestrator Decision', durationMs: 300 },
 ]
 
 const GO_FIELD_MAPPINGS: FieldMapping[] = [
@@ -66,88 +66,61 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
     6: 'idle',
   })
   const [isAdvancing, setIsAdvancing] = useState(false)
+  const hasStarted = useRef(false)
 
   useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = []
-    let currentDelay = 0
+    if (hasStarted.current) return
+    hasStarted.current = true
 
-    const runStep = (stepId: number, status: AgentStatus, delay: number) => {
-      const timer = setTimeout(() => {
-        setAgentStatuses(prev => ({ ...prev, [stepId]: status }))
-      }, delay)
-      timers.push(timer)
-      return delay
-    }
+    let cumulativeDelay = 0
 
-    if (scenario === 'GO') {
-      // Step 1: Classification
-      currentDelay += runStep(1, 'running', currentDelay)
-      currentDelay += runStep(1, 'complete', currentDelay + 600)
+    AGENT_STEPS.forEach((step) => {
+      // Skip step 3 in GO scenario
+      if (scenario === 'GO' && step.id === 3) return
 
-      // Step 2: Interpreter Run 1
-      currentDelay += runStep(2, 'running', currentDelay)
-      currentDelay += runStep(2, 'complete', currentDelay + 900)
+      // Set to running
+      const runDelay = cumulativeDelay
+      setTimeout(() => {
+        console.log('Step', step.id, 'runs at', runDelay, 'ms')
+        setAgentStatuses(prev => ({
+          ...prev,
+          [step.id]: 'running'
+        }))
+      }, runDelay)
 
-      // Step 3: Skip (T1 only)
-      // Step 4: Validator
-      currentDelay += runStep(4, 'running', currentDelay)
-      currentDelay += runStep(4, 'complete', currentDelay + 400)
+      cumulativeDelay += step.durationMs
 
-      // Step 5: Translator
-      currentDelay += runStep(5, 'running', currentDelay)
-      currentDelay += runStep(5, 'complete', currentDelay + 300)
+      // Set to complete (or hold for divergence)
+      const completeDelay = cumulativeDelay
+      const isHoldStep = scenario === 'HOLD' && step.id === 3
+      const finalStatus = isHoldStep ? 'hold' : (scenario === 'HOLD' && step.id === 6 ? 'hold' : 'complete')
+      setTimeout(() => {
+        console.log('Step', step.id, 'completes at', completeDelay, 'ms')
+        setAgentStatuses(prev => ({
+          ...prev,
+          [step.id]: finalStatus
+        }))
+      }, completeDelay)
 
-      // Step 6: Orchestrator
-      currentDelay += runStep(6, 'running', currentDelay)
-      currentDelay += runStep(6, 'complete', currentDelay + 200)
+      // Skip steps 4 and 5 in HOLD scenario after step 3
+      if (scenario === 'HOLD' && step.id === 3) {
+        cumulativeDelay += 50
+        return
+      }
+    })
 
-      // Show advancing indicator
-      const advancingTimer = setTimeout(() => {
-        setIsAdvancing(true)
-      }, currentDelay)
-      timers.push(advancingTimer)
+    // Advance to result after final step
+    const finalDelay = cumulativeDelay + 600
+    setTimeout(() => {
+      console.log('Advancing indicator at', cumulativeDelay, 'ms')
+      setIsAdvancing(true)
+    }, cumulativeDelay)
 
-      // Navigate to next page
-      const finalTimer = setTimeout(() => {
-        onNext()
-      }, currentDelay + 600)
-      timers.push(finalTimer)
-    } else {
-      // HOLD scenario
-      // Step 1: Classification
-      currentDelay += runStep(1, 'running', currentDelay)
-      currentDelay += runStep(1, 'complete', currentDelay + 600)
-
-      // Step 2: Interpreter Run 1
-      currentDelay += runStep(2, 'running', currentDelay)
-      currentDelay += runStep(2, 'complete', currentDelay + 900)
-
-      // Step 3: Interpreter Run 2 (T1 divergence)
-      currentDelay += runStep(3, 'running', currentDelay)
-      currentDelay += runStep(3, 'hold', currentDelay + 900)
-
-      // Skip steps 4 and 5
-      // Step 6: Orchestrator (HOLD decision)
-      currentDelay += runStep(6, 'running', currentDelay)
-      currentDelay += runStep(6, 'hold', currentDelay + 200)
-
-      // Show advancing indicator
-      const advancingTimer = setTimeout(() => {
-        setIsAdvancing(true)
-      }, currentDelay)
-      timers.push(advancingTimer)
-
-      // Navigate to next page
-      const finalTimer = setTimeout(() => {
-        onNext()
-      }, currentDelay + 600)
-      timers.push(finalTimer)
-    }
-
-    return () => {
-      timers.forEach(timer => clearTimeout(timer))
-    }
-  }, [scenario, onNext])
+    setTimeout(() => {
+      console.log('Final advance at', finalDelay, 'ms')
+      onNext()
+    }, finalDelay)
+  }, [])
 
   const getFieldMappings = (stepId: number): FieldMapping[] | undefined => {
     if (stepId === 2) {
