@@ -52,42 +52,48 @@ const DIVERGENCE_DETAIL: DivergenceDetail = {
   },
 }
 
-interface PreparingResultsProps {
+interface CompletionBannerProps {
   scenario: Scenario
+  onNext: () => void
 }
 
-const PreparingResults: React.FC<PreparingResultsProps> = ({ scenario }) => {
-  const [progress, setProgress] = useState(0)
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setProgress(100)
-    }, 50)
-    return () => clearTimeout(timer)
-  }, [])
+const CompletionBanner: React.FC<CompletionBannerProps> = ({ scenario, onNext }) => {
+  if (scenario === 'GO') {
+    return (
+      <div className="bg-green-950 border border-green-800 rounded-lg p-5 mt-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <span className="text-green-400 text-xl mr-3">✓</span>
+            <span className="text-green-300 text-sm font-medium">
+              Pipeline complete — all fields governed successfully
+            </span>
+          </div>
+          <button
+            onClick={onNext}
+            className="bg-green-600 hover:bg-green-500 text-white px-6 py-2.5 rounded-lg font-medium transition-colors"
+          >
+            View Results →
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mt-4">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 flex-1">
-          {scenario === 'GO' ? (
-            <>
-              <span className="text-green-400">✓</span>
-              <span className="text-green-300 text-sm">Preparing results...</span>
-            </>
-          ) : (
-            <>
-              <span className="text-red-400">⚠</span>
-              <span className="text-red-300 text-sm">Preparing results...</span>
-            </>
-          )}
+    <div className="bg-red-950 border border-red-800 rounded-lg p-5 mt-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <span className="text-red-400 text-xl mr-3">⚠</span>
+          <span className="text-red-300 text-sm font-medium">
+            Pipeline blocked — T1 field requires human review
+          </span>
         </div>
-        <div className="w-48 bg-gray-700 rounded-full h-1.5">
-          <div
-            className="bg-indigo-500 rounded-full h-1.5 transition-all duration-[550ms]"
-            style={{ width: `${progress}%` }}
-          ></div>
-        </div>
+        <button
+          onClick={onNext}
+          className="bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-lg font-medium transition-colors"
+        >
+          View Results →
+        </button>
       </div>
     </div>
   )
@@ -106,7 +112,7 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
     5: 'idle',
     6: 'idle',
   })
-  const [isAdvancing, setIsAdvancing] = useState(false)
+  const [isComplete, setIsComplete] = useState(false)
   const hasStarted = useRef(false)
 
   useEffect(() => {
@@ -142,12 +148,8 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
     }
 
     timers.push(setTimeout(() => {
-      setIsAdvancing(true)
+      setIsComplete(true)
     }, cumulativeDelay))
-
-    timers.push(setTimeout(() => {
-      onNext()
-    }, cumulativeDelay + 600))
 
     return () => {
       // Only clear timers if hasStarted was NOT set
@@ -215,7 +217,7 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
               )}
             </div>
           ))}
-          {isAdvancing && <PreparingResults scenario={scenario} />}
+          {isComplete && <CompletionBanner scenario={scenario} onNext={onNext} />}
         </div>
 
         <div className="flex justify-start mt-6">
