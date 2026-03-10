@@ -107,7 +107,7 @@ Update the status column as each step is completed.
 
 | # | Task | Agent | Status |
 |---|---|---|---|
-| 1.27 | Full UI review — all 4 steps working with mock data | Manual | ✅ |
+| 1.27 | Full UI review — all 4 steps working with mock data | Manual | 🟡 |
 | 1.28 | GO scenario end-to-end in browser | Manual | 🟡 |
 | 1.29 | HOLD scenario end-to-end in browser | Manual | ⚪ |
 | 1.30 | Merge developer → main | @DevOpsEngineer | ⚪ |

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { ProgressBar } from '@/components/ProgressBar'
 import { LandingPage } from '@/pages/LandingPage'
 import { ConfigurePage } from '@/pages/ConfigurePage'
@@ -10,22 +10,18 @@ const App: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(1)
   const [scenario, setScenario] = useState<Scenario>('GO')
 
-  const handleNext = () => {
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1)
-    }
-  }
+  const handleNext = useCallback(() => {
+    setCurrentStep(prev => prev < 4 ? prev + 1 : prev)
+  }, [])
 
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
-  }
+  const handleBack = useCallback(() => {
+    setCurrentStep(prev => prev > 1 ? prev - 1 : prev)
+  }, [])
 
-  const handleRestart = () => {
+  const handleRestart = useCallback(() => {
     setCurrentStep(1)
     setScenario('GO')
-  }
+  }, [])
 
   const renderPage = () => {
     switch (currentStep) {

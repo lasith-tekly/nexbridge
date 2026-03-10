@@ -52,6 +52,47 @@ const DIVERGENCE_DETAIL: DivergenceDetail = {
   },
 }
 
+interface PreparingResultsProps {
+  scenario: Scenario
+}
+
+const PreparingResults: React.FC<PreparingResultsProps> = ({ scenario }) => {
+  const [progress, setProgress] = useState(0)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setProgress(100)
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [])
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mt-4">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-1">
+          {scenario === 'GO' ? (
+            <>
+              <span className="text-green-400">✓</span>
+              <span className="text-green-300 text-sm">Preparing results...</span>
+            </>
+          ) : (
+            <>
+              <span className="text-red-400">⚠</span>
+              <span className="text-red-300 text-sm">Preparing results...</span>
+            </>
+          )}
+        </div>
+        <div className="w-48 bg-gray-700 rounded-full h-1.5">
+          <div
+            className="bg-indigo-500 rounded-full h-1.5 transition-all duration-[550ms]"
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export const PipelinePage: React.FC<PipelinePageProps> = ({
   onNext,
   onBack,
@@ -72,54 +113,43 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
     if (hasStarted.current) return
     hasStarted.current = true
 
+    const stepsToRun = scenario === 'GO'
+      ? AGENT_STEPS.filter(s => s.id !== 3)
+      : AGENT_STEPS.filter(s => s.id !== 4 && s.id !== 5)
+
     let cumulativeDelay = 0
+    const timers: ReturnType<typeof setTimeout>[] = []
 
-    AGENT_STEPS.forEach((step) => {
-      // Skip step 3 in GO scenario
-      if (scenario === 'GO' && step.id === 3) return
-
-      // Set to running
+    for (const step of stepsToRun) {
       const runDelay = cumulativeDelay
-      setTimeout(() => {
-        console.log('Step', step.id, 'runs at', runDelay, 'ms')
-        setAgentStatuses(prev => ({
-          ...prev,
-          [step.id]: 'running'
-        }))
-      }, runDelay)
+      const isHoldStep = scenario === 'HOLD' && step.id === 3
+      const isOrchestratorHold = scenario === 'HOLD' && step.id === 6
+
+      timers.push(setTimeout(() => {
+        setAgentStatuses(prev => ({...prev, [step.id]: 'running'}))
+      }, runDelay))
 
       cumulativeDelay += step.durationMs
 
-      // Set to complete (or hold for divergence)
       const completeDelay = cumulativeDelay
-      const isHoldStep = scenario === 'HOLD' && step.id === 3
-      const finalStatus = isHoldStep ? 'hold' : (scenario === 'HOLD' && step.id === 6 ? 'hold' : 'complete')
-      setTimeout(() => {
-        console.log('Step', step.id, 'completes at', completeDelay, 'ms')
-        setAgentStatuses(prev => ({
-          ...prev,
-          [step.id]: finalStatus
-        }))
-      }, completeDelay)
+      const finalStatus: AgentStatus = (isHoldStep || isOrchestratorHold)
+        ? 'hold'
+        : 'complete'
 
-      // Skip steps 4 and 5 in HOLD scenario after step 3
-      if (scenario === 'HOLD' && step.id === 3) {
-        cumulativeDelay += 50
-        return
-      }
-    })
+      timers.push(setTimeout(() => {
+        setAgentStatuses(prev => ({...prev, [step.id]: finalStatus}))
+      }, completeDelay))
+    }
 
-    // Advance to result after final step
-    const finalDelay = cumulativeDelay + 600
-    setTimeout(() => {
-      console.log('Advancing indicator at', cumulativeDelay, 'ms')
+    timers.push(setTimeout(() => {
       setIsAdvancing(true)
-    }, cumulativeDelay)
+    }, cumulativeDelay))
 
-    setTimeout(() => {
-      console.log('Final advance at', finalDelay, 'ms')
+    timers.push(setTimeout(() => {
       onNext()
-    }, finalDelay)
+    }, cumulativeDelay + 600))
+
+    return () => timers.forEach(clearTimeout)
   }, [])
 
   const getFieldMappings = (stepId: number): FieldMapping[] | undefined => {
@@ -137,43 +167,6 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
   }
 
   const isRunning = Object.values(agentStatuses).some(status => status === 'running')
-
-  const PreparingResults: React.FC = () => {
-    const [progress, setProgress] = useState(0)
-
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        setProgress(100)
-      }, 50)
-      return () => clearTimeout(timer)
-    }, [])
-
-    return (
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mt-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 flex-1">
-            {scenario === 'GO' ? (
-              <>
-                <span className="text-green-400">✓</span>
-                <span className="text-green-300 text-sm">Preparing results...</span>
-              </>
-            ) : (
-              <>
-                <span className="text-red-400">⚠</span>
-                <span className="text-red-300 text-sm">Preparing results...</span>
-              </>
-            )}
-          </div>
-          <div className="w-48 bg-gray-700 rounded-full h-1.5">
-            <div
-              className="bg-indigo-500 rounded-full h-1.5 transition-all duration-[550ms]"
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-[calc(100vh-120px)] bg-gray-950 px-4 py-8">
@@ -218,7 +211,7 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
               )}
             </div>
           ))}
-          {isAdvancing && <PreparingResults />}
+          {isAdvancing && <PreparingResults scenario={scenario} />}
         </div>
 
         <div className="flex justify-start mt-6">
