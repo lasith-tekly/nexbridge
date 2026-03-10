@@ -16,12 +16,12 @@ interface AgentStep {
 }
 
 const AGENT_STEPS: AgentStep[] = [
-  { id: 1, agentName: 'Classification', durationMs: 800 },
-  { id: 2, agentName: 'Interpreter — Run 1', durationMs: 1200 },
-  { id: 3, agentName: 'Interpreter — Run 2', subtitle: 'T1 only', durationMs: 1200 },
-  { id: 4, agentName: 'Validator', durationMs: 600 },
-  { id: 5, agentName: 'Translator', durationMs: 400 },
-  { id: 6, agentName: 'Orchestrator Decision', durationMs: 300 },
+  { id: 1, agentName: 'Classification', durationMs: 600 },
+  { id: 2, agentName: 'Interpreter — Run 1', durationMs: 900 },
+  { id: 3, agentName: 'Interpreter — Run 2', subtitle: 'T1 only', durationMs: 900 },
+  { id: 4, agentName: 'Validator', durationMs: 400 },
+  { id: 5, agentName: 'Translator', durationMs: 300 },
+  { id: 6, agentName: 'Orchestrator Decision', durationMs: 200 },
 ]
 
 const GO_FIELD_MAPPINGS: FieldMapping[] = [
@@ -65,6 +65,7 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
     5: 'idle',
     6: 'idle',
   })
+  const [isAdvancing, setIsAdvancing] = useState(false)
 
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = []
@@ -81,53 +82,65 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
     if (scenario === 'GO') {
       // Step 1: Classification
       currentDelay += runStep(1, 'running', currentDelay)
-      currentDelay += runStep(1, 'complete', currentDelay + 800)
+      currentDelay += runStep(1, 'complete', currentDelay + 600)
 
       // Step 2: Interpreter Run 1
       currentDelay += runStep(2, 'running', currentDelay)
-      currentDelay += runStep(2, 'complete', currentDelay + 1200)
+      currentDelay += runStep(2, 'complete', currentDelay + 900)
 
       // Step 3: Skip (T1 only)
       // Step 4: Validator
       currentDelay += runStep(4, 'running', currentDelay)
-      currentDelay += runStep(4, 'complete', currentDelay + 600)
+      currentDelay += runStep(4, 'complete', currentDelay + 400)
 
       // Step 5: Translator
       currentDelay += runStep(5, 'running', currentDelay)
-      currentDelay += runStep(5, 'complete', currentDelay + 400)
+      currentDelay += runStep(5, 'complete', currentDelay + 300)
 
       // Step 6: Orchestrator
       currentDelay += runStep(6, 'running', currentDelay)
-      currentDelay += runStep(6, 'complete', currentDelay + 300)
+      currentDelay += runStep(6, 'complete', currentDelay + 200)
+
+      // Show advancing indicator
+      const advancingTimer = setTimeout(() => {
+        setIsAdvancing(true)
+      }, currentDelay)
+      timers.push(advancingTimer)
 
       // Navigate to next page
       const finalTimer = setTimeout(() => {
         onNext()
-      }, currentDelay + 1000)
+      }, currentDelay + 600)
       timers.push(finalTimer)
     } else {
       // HOLD scenario
       // Step 1: Classification
       currentDelay += runStep(1, 'running', currentDelay)
-      currentDelay += runStep(1, 'complete', currentDelay + 800)
+      currentDelay += runStep(1, 'complete', currentDelay + 600)
 
       // Step 2: Interpreter Run 1
       currentDelay += runStep(2, 'running', currentDelay)
-      currentDelay += runStep(2, 'complete', currentDelay + 1200)
+      currentDelay += runStep(2, 'complete', currentDelay + 900)
 
       // Step 3: Interpreter Run 2 (T1 divergence)
       currentDelay += runStep(3, 'running', currentDelay)
-      currentDelay += runStep(3, 'hold', currentDelay + 1200)
+      currentDelay += runStep(3, 'hold', currentDelay + 900)
 
       // Skip steps 4 and 5
       // Step 6: Orchestrator (HOLD decision)
       currentDelay += runStep(6, 'running', currentDelay)
-      currentDelay += runStep(6, 'hold', currentDelay + 300)
+      currentDelay += runStep(6, 'hold', currentDelay + 200)
+
+      // Show advancing indicator
+      const advancingTimer = setTimeout(() => {
+        setIsAdvancing(true)
+      }, currentDelay)
+      timers.push(advancingTimer)
 
       // Navigate to next page
       const finalTimer = setTimeout(() => {
         onNext()
-      }, currentDelay + 1000)
+      }, currentDelay + 600)
       timers.push(finalTimer)
     }
 
@@ -151,6 +164,43 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
   }
 
   const isRunning = Object.values(agentStatuses).some(status => status === 'running')
+
+  const PreparingResults: React.FC = () => {
+    const [progress, setProgress] = useState(0)
+
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        setProgress(100)
+      }, 50)
+      return () => clearTimeout(timer)
+    }, [])
+
+    return (
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mt-4">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-1">
+            {scenario === 'GO' ? (
+              <>
+                <span className="text-green-400">✓</span>
+                <span className="text-green-300 text-sm">Preparing results...</span>
+              </>
+            ) : (
+              <>
+                <span className="text-red-400">⚠</span>
+                <span className="text-red-300 text-sm">Preparing results...</span>
+              </>
+            )}
+          </div>
+          <div className="w-48 bg-gray-700 rounded-full h-1.5">
+            <div
+              className="bg-indigo-500 rounded-full h-1.5 transition-all duration-[550ms]"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-[calc(100vh-120px)] bg-gray-950 px-4 py-8">
@@ -195,6 +245,7 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
               )}
             </div>
           ))}
+          {isAdvancing && <PreparingResults />}
         </div>
 
         <div className="flex justify-start mt-6">
