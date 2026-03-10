@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react'
+import { ScenarioToggle } from '@/components/ScenarioToggle'
+import { XmlViewer } from '@/components/XmlViewer'
+import { JsonViewer } from '@/components/JsonViewer'
 import type { Scenario } from '@/types/nexbridge.types'
 
 interface ConfigurePageProps {
@@ -62,81 +65,70 @@ export const ConfigurePage: React.FC<ConfigurePageProps> = ({
   return (
     <div className="min-h-[calc(100vh-120px)] bg-gray-950 px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-white mb-8">Configure Demo</h1>
-
-        <div className="flex gap-4 mb-8">
-          <button
-            onClick={() => setScenario('GO')}
-            className={`flex-1 py-3 px-6 rounded-lg font-semibold transition-colors ${
-              scenario === 'GO'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
-          >
-            ✓ GO — Safe transformation
-          </button>
-          <button
-            onClick={() => setScenario('HOLD')}
-            className={`flex-1 py-3 px-6 rounded-lg font-semibold transition-colors ${
-              scenario === 'HOLD'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
-          >
-            ⚠ HOLD — Risk scenario
-          </button>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-white">Configure Demo</h1>
+          <p className="text-gray-400 mt-2">
+            Load a scenario or paste your own XML payload and target schema
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="mb-6">
+          <ScenarioToggle scenario={scenario} onChange={setScenario} />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <div>
-            <h2 className="text-xl font-semibold text-white mb-2">System A</h2>
-            <p className="text-gray-400 text-sm mb-4">Legacy XML Payload</p>
-            <textarea
-              value={xmlValue}
-              onChange={(e) => setXmlValue(e.target.value)}
-              className="w-full h-64 bg-gray-900 border border-gray-800 rounded-lg p-4 text-green-400 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              spellCheck={false}
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-white">System A</h2>
+              <p className="text-sm text-gray-400 mt-1">Legacy XML Payload</p>
+            </div>
+            <XmlViewer
+              content={xmlValue}
+              editable={true}
+              onChange={(val) => setXmlValue(val)}
+              highlightFields={scenario === 'HOLD' ? ['weight_limit'] : []}
             />
           </div>
 
           <div>
-            <h2 className="text-xl font-semibold text-white mb-2">System B</h2>
-            <p className="text-gray-400 text-sm mb-4">Target API Contract</p>
-            <textarea
-              value={schemaValue}
-              onChange={(e) => setSchemaValue(e.target.value)}
-              className="w-full h-64 bg-gray-900 border border-gray-800 rounded-lg p-4 text-blue-400 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              spellCheck={false}
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-white">System B</h2>
+              <p className="text-sm text-gray-400 mt-1">Target API Contract</p>
+            </div>
+            <JsonViewer
+              content={schemaValue}
+              editable={true}
+              onChange={(val) => setSchemaValue(val)}
             />
           </div>
         </div>
 
         {scenario === 'GO' ? (
-          <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 mb-8">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 mt-4 flex items-start gap-3">
+            <span className="text-xl">ℹ️</span>
             <p className="text-gray-400 text-sm">
-              <span className="text-blue-400 mr-2">ℹ️</span>
               This payload contains only T2/T3 fields. NexBridge will apply standard governed transformation.
             </p>
           </div>
         ) : (
-          <div className="bg-amber-900 bg-opacity-20 border border-amber-700 rounded-lg p-4 mb-8">
-            <p className="text-amber-200 text-sm">
-              <span className="text-amber-400 mr-2">⚠️</span>
+          <div className="bg-amber-950 border border-amber-800 rounded-lg p-4 mt-4 flex items-start gap-3">
+            <span className="text-xl">⚠️</span>
+            <p className="text-amber-300 text-sm">
               This payload contains weight_limit — a T1 Safety Critical field. NexBridge will apply dual-agent verification with 100% confidence threshold. Any ambiguity will trigger a HOLD.
             </p>
           </div>
         )}
 
-        <div className="flex justify-between">
+        <div className="flex justify-between mt-6">
           <button
             onClick={onBack}
-            className="bg-gray-800 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+            className="bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-lg transition-colors"
           >
             ← Back
           </button>
           <button
             onClick={onNext}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium transition-colors"
           >
             Run Transformation →
           </button>
