@@ -149,7 +149,11 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
       onNext()
     }, cumulativeDelay + 600))
 
-    return () => timers.forEach(clearTimeout)
+    return () => {
+      // Only clear timers if hasStarted was NOT set
+      // (i.e. first StrictMode unmount before sequence starts)
+      // Do NOT reset hasStarted — sequence must not restart
+    }
   }, [])
 
   const getFieldMappings = (stepId: number): FieldMapping[] | undefined => {
