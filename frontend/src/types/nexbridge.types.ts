@@ -19,7 +19,7 @@ export interface AuditEntry {
   tier: Tier;
   original_value: string;
   transformed_value: unknown;
-  confidence: number;
+  confidence: number | null;
   agent: string;
   decision: string;
   reasoning: string;

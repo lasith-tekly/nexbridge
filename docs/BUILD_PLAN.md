@@ -101,13 +101,13 @@ Update the status column as each step is completed.
 |---|---|---|---|---|
 | 1.24 | AuditLog.tsx | src/components/AuditLog.tsx | @FrontendDeveloper | ✅ |
 | 1.25 | DivergenceDetail.tsx | src/components/DivergenceDetail.tsx | @FrontendDeveloper | ✅ |
-| 1.26 | ResultPage.tsx — full content | src/pages/ResultPage.tsx | @FrontendDeveloper | 🟡 |
+| 1.26 | ResultPage.tsx — full content | src/pages/ResultPage.tsx | @FrontendDeveloper | ✅ |
 
 ### Phase 1 Sign-off
 
 | # | Task | Agent | Status |
 |---|---|---|---|
-| 1.27 | Full UI review — all 4 steps working with mock data | Manual | ⚪ |
+| 1.27 | Full UI review — all 4 steps working with mock data | Manual | 🟡 |
 | 1.28 | GO scenario end-to-end in browser | Manual | ⚪ |
 | 1.29 | HOLD scenario end-to-end in browser | Manual | ⚪ |
 | 1.30 | Merge developer → main | @DevOpsEngineer | ⚪ |
