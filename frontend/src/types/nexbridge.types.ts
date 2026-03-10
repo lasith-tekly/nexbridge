@@ -30,4 +30,17 @@ export interface FieldMapping {
   target_field: string;
   transformed_value: unknown;
   confidence: number;
+  tier: Tier;
+}
+
+export interface DivergenceDetail {
+  fieldName: string;
+  run1: {
+    targetField: string;
+    confidence: number;
+  };
+  run2: {
+    targetField: string;
+    confidence: number;
+  };
 }

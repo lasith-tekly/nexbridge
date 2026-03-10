@@ -92,8 +92,8 @@ Update the status column as each step is completed.
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 1.22 | AgentCard.tsx | src/components/AgentCard.tsx | @FrontendDeveloper | 🟡 |
-| 1.23 | PipelinePage.tsx — full content + animation | src/pages/PipelinePage.tsx | @FrontendDeveloper | ⚪ |
+| 1.22 | AgentCard.tsx | src/components/AgentCard.tsx | @FrontendDeveloper | ✅ |
+| 1.23 | PipelinePage.tsx — full content + animation | src/pages/PipelinePage.tsx | @FrontendDeveloper | 🟡 |
 
 ### Page Content — Step 4
 
