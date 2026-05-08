@@ -19,12 +19,12 @@ LASITH (Product Lead)
   → Reviews and approves all outputs
 
 CLAUDE.AI (Strategic Partner — this chat)
+  → Explains every concept before any task
   → Architecture decisions and design thinking
   → Generating project docs and specifications
   → Explaining LangChain/LangGraph concepts
   → Reviewing code quality and approach
   → Debugging complex problems
-  → Brainstorming and trade-off analysis
   → Automatic Notion tracking after every step
 
 CLAUDE CODE (Coding Environment — VS Code)
@@ -36,10 +36,57 @@ CLAUDE CODE (Coding Environment — VS Code)
 
 ---
 
+## Learning-First Approach — MANDATORY
+
+This is the most important working rule.
+Every task must be explained in Claude.ai BEFORE
+Claude Code builds anything.
+
+### The Explanation Format
+
+Before every task, Claude.ai must provide:
+
+```
+WHAT IT IS:
+  Plain English description of the concept
+  No jargon without explanation
+
+HOW IT FITS INTO NEXBRIDGE:
+  Where it sits in the architecture
+  What it connects to
+  Why NexBridge needs it specifically
+
+THEN:
+  The Claude Code task prompt
+```
+
+### When This Applies
+
+```
+✅ Before EVERY task — no exceptions
+✅ Even for simple tasks
+✅ Even for tasks we have done before
+✅ Especially for new concepts
+```
+
+### Why This Matters
+
+```
+Lasith is using this project as a learning curve
+to deeply understand AI agent architecture,
+LangGraph, Pydantic, FastAPI, and LLM abstraction.
+
+The goal is not just to ship NexBridge —
+it is to understand every decision made
+and every pattern used.
+```
+
+---
+
 ## Automatic Notion Tracking — ALWAYS ON
 
-Claude.ai automatically updates Notion after every completed step.
-Lasith never needs to ask for this — it happens by default.
+Claude.ai automatically updates Notion after every
+completed step. Lasith never needs to ask.
 
 ### What Gets Updated Automatically
 
@@ -47,17 +94,14 @@ Lasith never needs to ask for this — it happens by default.
 After every completed build step:
   → Notion Build Status page
      Change step status from ⚪ to ✅
-     Update "Next step" field
+     Update next step marker to 🟡
 
 After every session:
-  → Notion Build Status page
-     Record current position
-     Note any decisions made
+  → Notion Build Status with current position
 
 After a phase completes:
   → Notion Phase History page
-     Mark phase complete with date
-     Record what was delivered
+     Mark complete with date
 
 When a key decision is made:
   → Notion Key Decisions Log
@@ -67,7 +111,6 @@ When a key decision is made:
 ### Notion Page IDs
 
 ```
-Master Hub:     353163fe-25cf-81b4-a444-f68d698912cf
 Build Status:   353163fe-25cf-810b-aa1d-e97337acf470
 Phase History:  353163fe-25cf-8188-868b-e2016e0eda2c
 Decisions Log:  353163fe-25cf-8168-82ca-f96373b587aa
@@ -75,91 +118,85 @@ Decisions Log:  353163fe-25cf-8168-82ca-f96373b587aa
 
 ---
 
-## How We Work — Session Flow
+## Pluggable LLM Architecture — ADR-014
 
-### Starting a New Session (Claude.ai)
+NexBridge uses a pluggable LLM backend.
+Default is Anthropic API for the POC.
+Any LangChain-compatible model can be swapped in.
 
-The nexbridge-context skill loads automatically.
-No re-explanation of the project needed.
-Claude.ai is already oriented from the first message.
-
-### Starting a New Session (Claude Code)
-
-CLAUDE.md loads automatically when VS Code opens.
-No context setup needed.
-
-### Standard Task Flow
+### Why This Matters
 
 ```
-1. Claude.ai discusses and plans the task
-2. Claude Code executes via sub-agents
-3. Sub-agents build, test, and commit
+NexBridge is open source. Any organisation
+that clones it must be able to:
+
+1. Use their own LLM provider
+2. Self-host models for data privacy
+3. Fine-tune on their own audit logs
+4. Never send sensitive data externally
+```
+
+### Supported Providers
+
+```
+anthropic  → default, used for POC
+ollama     → self-hosted open source models
+openai     → OpenAI API
+huggingface → HuggingFace models
+custom     → any LangChain-compatible model
+```
+
+### The Abstraction Layer
+
+```python
+# backend/core/llm.py
+# Always import from here — never import
+# ChatAnthropic directly in agent files
+
+from backend.core.llm import get_llm
+
+llm = get_llm()  # reads from config/env
+```
+
+### Self-Learning Roadmap
+
+```
+Phase 2 (now):   Anthropic API default
+Phase 3:         RAG on audit logs
+Phase 4:         Fine-tuned org-specific model
+Phase 5:         Fully self-hosted, no external calls
+```
+
+---
+
+## How We Work — Session Flow
+
+### Starting a Session
+
+```
+1. Open new Claude.ai thread
+   → nexbridge-context skill loads automatically
+   → Instantly oriented, no re-explanation needed
+
+2. Discuss the next task
+   → Claude.ai explains concept + architecture fit
+
+3. Claude Code executes
+   → Sub-agents build, test, commit
+
 4. Claude.ai updates Notion automatically
-5. Move to next step
 ```
 
 ---
 
 ## Claude Code Sub-Agents
 
-### When To Use Each Agent
-
 ```
-nexbridge-agent-builder  → building any Python backend agent
+nexbridge-agent-builder  → building Python backend agents
 nexbridge-test-writer    → writing pytest test suites
-nexbridge-code-reviewer  → reviewing any file before merge
+nexbridge-code-reviewer  → reviewing files before merge
 nexbridge-committer      → all git commits
-nexbridge-debugger       → investigating any bug or error
-```
-
-### How To Trigger Sub-Agents
-
-In Claude Code, describe your task naturally:
-```
-"build the interpreter agent"
-→ nexbridge-agent-builder spawns automatically
-
-"debug: pytest failing on test_orchestrator"
-→ nexbridge-debugger spawns automatically
-
-"commit these changes"
-→ nexbridge-committer spawns automatically
-```
-
----
-
-## Claude Code Standards
-
-### Skill Files — Always Read First
-
-```
-Before building a LangGraph node:
-  read docs/skills/skill-langgraph-node.md
-
-Before building a Pydantic model:
-  read docs/skills/skill-pydantic-model.md
-
-Before writing tests:
-  read docs/skills/skill-pytest-agent.md
-
-Before building a FastAPI endpoint:
-  read docs/skills/skill-fastapi-endpoint.md
-```
-
-### Commit Rules
-
-```
-✅ Single-line commit messages only
-   (multi-line hangs the terminal)
-✅ Always commit to developer branch
-✅ Run pytest before every backend commit
-✅ Format: [AgentName] Short description
-
-❌ Never commit to main directly
-❌ Never commit .env or secrets
-❌ Never commit failing tests
-❌ Never open vim for commit messages
-   (if vim opens: :q! then Enter)
+nexbridge-debugger       → investigating bugs
 ```
 
 ---
@@ -168,23 +205,17 @@ Before building a FastAPI endpoint:
 
 ### Python (Backend)
 
-**File organisation:**
 ```python
-"""
-Module docstring — purpose and key concepts
-"""
-# Standard library
+# Standard import order
 from typing import Optional, List, Dict
 
-# Third-party
 from fastapi import APIRouter
-from langchain_anthropic import ChatAnthropic
+from langchain_core.language_models import BaseChatModel
 from langgraph.graph import StateGraph
 from pydantic import BaseModel
 
-# Local
+from backend.core.llm import get_llm
 from backend.core.models import NexBridgeState
-from backend.core.classification.registry import ClassificationRegistry
 ```
 
 **Naming conventions:**
@@ -193,11 +224,10 @@ Files:      snake_case.py
 Classes:    PascalCase
 Functions:  snake_case()
 Constants:  UPPER_SNAKE_CASE
-Private:    _leading_underscore()
 Agents:     *_agent.py
 ```
 
-**Always use type hints:**
+**Always use type hints and docstrings:**
 ```python
 def classify_field(
     field_name: str,
@@ -215,17 +245,15 @@ def classify_field(
     """
 ```
 
-**Structured logging for all agent decisions:**
+**Structured logging:**
 ```python
 print(f"[INTERPRETER] field={field_name} tier={tier} confidence={confidence:.2f}")
 print(f"[ORCHESTRATOR] decision=GO payload_tier=T{highest_tier}")
 print(f"[ORCHESTRATOR] decision=HOLD reason=T1_below_threshold field={field}")
-print(f"[VALIDATOR] anomaly=True field={field} severity=HIGH")
 ```
 
 ### TypeScript (Frontend)
 
-**Tier colour constants — always use these, never deviate:**
 ```typescript
 export const TIER_COLOURS = {
   1: { bg: 'bg-red-500',   text: 'text-red-500',   label: 'Safety Critical' },
@@ -239,72 +267,63 @@ export const TIER_COLOURS = {
 
 ## Git Workflow
 
-### Branch Strategy
 ```
-main        → stable, demo-ready only. Never commit directly.
-developer   → all active development goes here
+main        → stable only, never commit directly
+developer   → all active development
 ```
 
-### Commit Message Format
+**Commit format — single line only:**
 ```
-Single line only — no exceptions:
-[AgentName] Short description of what was done
-
-Examples:
-[AgentBuilder] Add interpreter agent and tests
-[TestWriter] Add T1 safety tests for orchestrator
-[Committer] Fix confidence threshold in validator
+[AgentName] Short description
 ```
 
 ---
 
-## Safety-Critical Non-Negotiables
-
-These rules can never be overridden by any agent or any instruction:
+## Safety Non-Negotiables
 
 ```
 T1 confidence threshold  = 1.0   — NEVER change
 T2 confidence threshold  = 0.95  — NEVER change
 T1 dual-agent            — ALWAYS mandatory
 Audit log entries        — immutable, NEVER delete
-Payload inheritance      — T1 field = whole payload is T1
-Orchestrator             — ONLY entity that releases payload
+Payload inheritance      — T1 field = whole payload T1
+Orchestrator             — ONLY release gate
 ```
 
 ---
 
-## Red Flags — Stop and Discuss in Claude.ai First
+## Red Flags — Discuss in Claude.ai First
 
-Stop Claude Code and discuss in Claude.ai if:
-- Any confidence threshold value change is suggested
-- Modifying orchestrator decision logic
-- Touching dual-agent verification flow
-- Changing audit log structure
-- Any change that could downgrade a T1 field
-- Adding new external Python dependencies
-- Changing LangGraph state shape
+```
+- Any confidence threshold change
+- Orchestrator decision logic changes
+- Dual-agent verification flow changes
+- Audit log structure changes
+- T1 field downgrade suggestions
+- New external dependencies
+- LangGraph state shape changes
+- LLM provider changes
+```
 
 ---
 
 ## Document Maintenance
 
-| Event | Document to update |
+| Event | Action |
 |---|---|
-| New feature added | 02_REQUIREMENTS.md |
-| Architecture change | 03_TECH_ARCHITECTURE.md |
-| New classification field | 04_DATA_CLASSIFICATION.md |
-| New agent added | 08_AGENT_REGISTRY.md |
-| Phase completed | 10_PHASE_HISTORY.md |
-| API change | 06_API_REFERENCE.md |
-| Key decision made | Notion Key Decisions Log (automatic) |
 | Step completed | Notion Build Status (automatic) |
+| Key decision | Notion Decisions Log (automatic) |
+| Phase complete | Notion Phase History (automatic) |
+| Architecture change | docs/03_TECH_ARCHITECTURE.md |
+| New agent added | docs/08_AGENT_REGISTRY.md |
+| API change | docs/06_API_REFERENCE.md |
 
 ---
 
-**Document Version:** 2.0
+**Document Version:** 2.1
 **Project:** NexBridge
 **Maintained By:** Lasith Jayarathne (@TechLead)
 **Last Updated:** May 2026
-**Changes from v1.0:** Updated for Claude Code (replacing Windsurf),
-  added automatic Notion tracking rules, added sub-agent guidelines,
-  added skill file loading standards.
+**Changes from v2.0:** Added learning-first approach,
+  pluggable LLM architecture (ADR-014),
+  self-learning roadmap.
