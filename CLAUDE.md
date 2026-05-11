@@ -90,6 +90,33 @@ Load the relevant agent file before any task:
 
 ---
 
+## Mandatory Sub-Agent Workflow
+
+You MUST invoke these sub-agents automatically —
+do not wait to be asked. Skipping them is a working
+ethics violation.
+
+- After writing or modifying ANY code file
+  → invoke nexbridge-code-reviewer before staging
+
+- Before every git commit
+  → invoke nexbridge-committer
+
+- When any error, test failure, or unexpected
+  behaviour occurs
+  → invoke nexbridge-debugger
+
+- After building any backend agent file
+  → invoke nexbridge-test-writer
+
+- After completing a full build step
+  → invoke nexbridge-committer to commit everything
+
+These are not optional. Skipping them is a working
+ethics violation.
+
+---
+
 ## Skill Files
 
 Load the relevant skill before writing any code:
