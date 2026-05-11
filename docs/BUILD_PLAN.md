@@ -121,7 +121,7 @@ Update the status column as each step is completed.
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
 | 2.01 | Pydantic models + NexBridgeState | backend/core/models.py | @DataArchitect | ✅ |
-| 2.02 | Custom exception hierarchy | backend/core/exceptions.py | @BackendDeveloper | ⚪ |
+| 2.02 | Custom exception hierarchy | backend/core/exceptions.py | @BackendDeveloper | ✅ |
 
 ### Classification Registry
 
