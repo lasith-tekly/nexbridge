@@ -127,8 +127,8 @@ Update the status column as each step is completed.
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 2.03 | Registry JSON — generic domain fields | backend/core/classification/registry.json | @BackendDeveloper | ⚪ |
-| 2.04 | ClassificationRegistry class | backend/core/classification/registry.py | @BackendDeveloper | ⚪ |
+| 2.03 | Registry JSON — generic domain fields | backend/core/classification/registry.json | @DataArchitect | ✅ |
+| 2.04 | ClassificationRegistry class | backend/core/classification/registry.py | @DataArchitect | ✅ |
 | 2.05 | Registry unit tests | backend/tests/test_registry.py | @QAEngineer | ⚪ |
 
 ### Interpreter Agent
