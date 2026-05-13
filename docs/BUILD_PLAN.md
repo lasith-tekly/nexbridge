@@ -135,8 +135,8 @@ Update the status column as each step is completed.
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 2.06 | InterpreterAgent class + LangChain integration | backend/core/agents/interpreter.py | @BackendDeveloper | ⚪ |
-| 2.07 | Interpreter unit tests | backend/tests/test_interpreter.py | @QAEngineer | ⚪ |
+| 2.06 | InterpreterAgent class + LangChain integration | backend/core/agents/interpreter.py | @BackendDeveloper | ✅ |
+| 2.07 | Interpreter unit tests | backend/tests/test_interpreter.py | @QAEngineer | ✅ |
 
 ### Translator Agent
 
