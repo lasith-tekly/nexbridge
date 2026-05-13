@@ -9,6 +9,7 @@ See docs/04_DATA_CLASSIFICATION.md for tier definitions.
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -44,8 +45,17 @@ class ClassificationRegistry:
             FileNotFoundError: If registry.json does not exist
             json.JSONDecodeError: If registry.json is malformed
         """
-        # Locate registry.json in the same directory as this file
-        registry_path = Path(__file__).parent / "registry.json"
+        # Check for REGISTRY_PATH environment variable
+        custom_registry = os.getenv("REGISTRY_PATH")
+
+        if custom_registry and Path(custom_registry).exists():
+            # Use custom registry from environment
+            registry_path = Path(custom_registry)
+            print(f"[REGISTRY] Using custom registry: {registry_path}")
+        else:
+            # Default: registry.json in the same directory as this file
+            registry_path = Path(__file__).parent / "registry.json"
+            print(f"[REGISTRY] Using default registry: {registry_path}")
 
         if not registry_path.exists():
             raise FileNotFoundError(
@@ -64,7 +74,7 @@ class ClassificationRegistry:
 
         # Log successful load
         field_count = len(self._fields)
-        print(f"[REGISTRY] Loaded {field_count} fields from registry.json")
+        print(f"[REGISTRY] Loaded {field_count} fields")
         print(f"[REGISTRY] Version: {self._version}, Domain: {self._domain}")
 
     def classify(self, field_name: str) -> FieldClassification:
