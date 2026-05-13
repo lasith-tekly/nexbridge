@@ -1,0 +1,1 @@
+- [Phase 2 Classification Registry Completion](project_phase2_progress.md) — Tasks 2.03-2.04 done, 21 domain fields mapped to risk tiers
