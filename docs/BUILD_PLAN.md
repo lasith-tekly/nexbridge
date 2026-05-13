@@ -142,7 +142,7 @@ Update the status column as each step is completed.
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 2.08 | TranslatorAgent class | backend/core/agents/translator.py | @BackendDeveloper | ⚪ |
+| 2.08 | TranslatorAgent class | backend/core/agents/translator.py | @BackendDeveloper | ✅ |
 | 2.09 | Translator unit tests | backend/tests/test_translator.py | @QAEngineer | ⚪ |
 
 ### Orchestrator — Basic Flow
