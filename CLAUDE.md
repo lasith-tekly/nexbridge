@@ -107,7 +107,10 @@ ethics violation.
   → invoke nexbridge-debugger
 
 - After building any backend agent file
-  → invoke nexbridge-test-writer
+  → invoke nexbridge-test-writer to write tests
+  → nexbridge-test-writer must NOT update BUILD_PLAN.md
+    or mark any task complete — that requires explicit
+    approval from Claude.ai first
 
 - After completing a full build step
   → invoke nexbridge-committer to commit everything
