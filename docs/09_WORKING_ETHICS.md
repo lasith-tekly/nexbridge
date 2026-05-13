@@ -1,6 +1,6 @@
 # NexBridge — Working Ethics & Collaboration Standards
 
-**Version:** 3.0
+**Version:** 3.1
 **Last Updated:** May 2026
 **Changed:** Adapted from Crikly v1.6 — plan approval, prompt template,
              risk classification, quality gate, process lessons
@@ -57,8 +57,13 @@ Step 1  → Open docs/BUILD_PLAN.md
 Step 2  → Identify which agent owns that task
 
 Step 3  → Come to Claude.ai
-          Get the explanation (WHAT IT IS + HOW IT FITS)
-          Get the approved Claude Code prompt
+          Get the full explanation:
+            - WHAT the concept is
+            - HOW it fits NexBridge architecture
+            - ANY org configuration or design decisions
+            - THEN the approved Claude Code prompt
+          Do not paste any prompt until ALL design
+          questions are resolved here first
 
 Step 4  → Paste the prompt into Claude Code
           Claude Code presents its plan (Step 0)
@@ -113,6 +118,11 @@ Must NOT modify:
 Safety rules to enforce:
 - [T1/T2 threshold or safety rule if relevant]
 
+Scope: Build ONLY the files listed above.
+Do NOT extend scope to adjacent tasks in BUILD_PLAN.md.
+Do NOT build related files not explicitly listed here.
+If you identify something missing, flag it — do not build it.
+
 Step 0 — Present your plan first. List every file you will
 create or modify and your approach for each. Wait for
 explicit approval before writing any code.
@@ -120,6 +130,7 @@ explicit approval before writing any code.
 On completion:
 1. Mark task [ID] ✅ in docs/BUILD_PLAN.md
 2. Commit docs/BUILD_PLAN.md in the same commit as the code
+3. Do NOT mark adjacent tasks complete unless explicitly told
 
 Commit to: developer branch
 Risk: 🟢 Low | 🟡 Medium | 🔴 High
@@ -198,6 +209,9 @@ Every task must have a risk level assigned in the prompt.
 Stop immediately and bring to Claude.ai if:
 
 ```
+→ Claude Code extends scope beyond files listed in prompt
+→ Claude Code marks adjacent BUILD_PLAN.md tasks complete
+  without being asked
 → Any suggestion to lower T1 threshold below 1.0
 → Any suggestion to lower T2 threshold below 0.95
 → Any change to orchestrator decision logic
@@ -282,12 +296,14 @@ Before sending any Claude Code prompt, verify:
 □ Only relevant docs included (not everything)?
 □ Task described in one clear paragraph?
 □ Exact file paths specified?
+□ Scope boundary line included?
 □ Branch specified (developer)?
 □ Locked files named if relevant?
 □ Safety rules referenced if T1/T2 logic?
 □ Risk level assigned?
 □ Step 0 plan approval line included?
 □ On completion instructions included?
+□ All design decisions resolved in Claude.ai first?
 ```
 
 ---
@@ -599,9 +615,29 @@ lower quality output and missed NexBridge patterns.
 Rule: Every prompt includes the relevant agent MD file.
 No exceptions — even for single-line fixes.
 
+### L-06 — Never extend scope beyond the prompt
+Claude Code completed tasks 2.03 AND 2.04 when only 2.03
+was in the prompt. It read BUILD_PLAN.md and self-extended.
+Rule: Every prompt must include the Scope boundary line:
+"Build ONLY the files listed above. Do NOT extend scope
+to adjacent tasks in BUILD_PLAN.md without explicit approval."
+If Claude Code flags something missing — stop and come to
+Claude.ai. Never let it self-extend.
+
+### L-07 — Resolve all design decisions before writing the prompt
+The REGISTRY_PATH environment variable was missed from the
+2.03 prompt because the org configuration model was not
+fully discussed before the prompt was written.
+Rule: The Claude.ai explanation step must cover:
+  - What the component is
+  - How it fits NexBridge architecture
+  - How organisations configure or extend it
+  - Any env variables, file paths, or overrides needed
+Only write the prompt after ALL design questions are resolved.
+
 ---
 
-*NexBridge Working Ethics v3.0 — May 2026*
+*NexBridge Working Ethics v3.1 — May 2026*
 *Adapted from Crikly Working Ethics v1.6*
 *Review after each phase completion.*
 *Any process change must be agreed with Lasith first.*
