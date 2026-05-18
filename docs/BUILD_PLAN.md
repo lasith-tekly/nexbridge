@@ -157,7 +157,7 @@ Update the status column as each step is completed.
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
 | 2.12 | ValidatorAgent class | backend/core/agents/validator.py | @BackendDeveloper | ✅ |
-| 2.13 | Validator unit tests | backend/tests/test_validator.py | @QAEngineer | ⚪ |
+| 2.13 | Validator unit tests | backend/tests/test_validator.py | @QAEngineer | ✅ |
 
 ### T1 Safety Layer
 
