@@ -150,7 +150,7 @@ Update the status column as each step is completed.
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
 | 2.10 | LangGraph graph — T3/T4 basic flow | backend/core/orchestrator.py | @BackendDeveloper | ✅ |
-| 2.11 | Orchestrator unit tests — basic flow | backend/tests/test_orchestrator.py | @QAEngineer | ⚪ |
+| 2.11 | Orchestrator unit tests — basic flow | backend/tests/test_orchestrator.py | @QAEngineer | ✅ |
 
 ### Validator Agent
 
