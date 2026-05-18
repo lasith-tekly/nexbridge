@@ -15,7 +15,7 @@ from langgraph.graph import StateGraph, END
 from backend.core.state import NexBridgeState
 from backend.core.constants import CONFIDENCE_THRESHOLDS
 from backend.core.classification.registry import ClassificationRegistry
-from backend.core.agents.interpreter import interpreter_node
+from backend.core.agents.interpreter import interpreter_node, interpreter_run_2_node
 from backend.core.agents.validator import validator_node
 from backend.core.agents.translator import translator_node
 
@@ -26,10 +26,15 @@ def orchestrator_node(state: NexBridgeState) -> NexBridgeState:
     T1/T2 below threshold → HOLD immediately.
     T3/T4 below threshold → log warning, continue.
 
+    For T1 payloads, also checks divergence between interpreter Run 1 and Run 2.
+    If target_field mappings differ, HOLD immediately.
+
     Reads:
         - state["confidence_scores"]: Confidence per field
         - state["field_classifications"]: Tier per field
         - state["payload_tier"]: Overall payload tier
+        - state["interpreter_run_1"]: Run 1 field mappings (T1 only)
+        - state["interpreter_run_2"]: Run 2 field mappings (T1 only)
 
     Writes:
         - state["decision"]: "GO" or "HOLD"
@@ -46,6 +51,35 @@ def orchestrator_node(state: NexBridgeState) -> NexBridgeState:
     confidence_scores = state["confidence_scores"]
     field_classifications = state["field_classifications"]
     payload_tier = state["payload_tier"]
+
+    # T1 Divergence Check — dual-agent verification
+    if payload_tier == 1:
+        run_1 = state["interpreter_run_1"]
+        run_2 = state.get("interpreter_run_2", {})
+
+        print(f"[ORCHESTRATOR] T1 divergence check: comparing {len(run_1)} fields")
+
+        for field_name, mapping_dict in run_1.items():
+            if field_name in run_2:
+                run1_target = mapping_dict["target_field"]
+                run2_target = run_2[field_name]["target_field"]
+
+                if run1_target != run2_target:
+                    print(
+                        f"[ORCHESTRATOR] T1 DIVERGENCE DETECTED "
+                        f"field={field_name} Run1={run1_target} Run2={run2_target}"
+                    )
+                    return {
+                        **state,
+                        "decision": "HOLD",
+                        "decision_reason": (
+                            f"T1 field '{field_name}' diverged between interpreter runs: "
+                            f"Run1={run1_target}, Run2={run2_target}"
+                        ),
+                        "translated_payload": None,
+                    }
+
+        print("[ORCHESTRATOR] T1 divergence check passed — both runs agree")
 
     # Check each field against its tier threshold
     for field_name, confidence in confidence_scores.items():
@@ -177,12 +211,36 @@ def extract_field_names_from_xml(xml: str) -> list[str]:
         return []
 
 
+def route_after_interpreter_1(state: NexBridgeState) -> str:
+    """
+    Conditional routing after interpreter Run 1.
+    T1 payloads must go through dual-agent verification (Run 2).
+    T2/T3/T4 payloads skip Run 2 and go directly to validator.
+
+    Reads:
+        - state["payload_tier"]: Overall payload tier from classification
+
+    Returns:
+        Next node name: "interpreter_run_2" for T1, "validator" otherwise
+    """
+    payload_tier = state["payload_tier"]
+
+    if payload_tier == 1:
+        print("[ORCHESTRATOR] T1 payload detected → routing to Run 2")
+        return "interpreter_run_2"
+    else:
+        print(f"[ORCHESTRATOR] T{payload_tier} payload → skipping Run 2")
+        return "validator"
+
+
 def build_graph():
     """
     Build the NexBridge transformation pipeline graph.
 
-    Flow: classification → interpreter → validator →
-          translator → orchestrator → END
+    Flow:
+    - classification → interpreter_run_1 → [conditional routing]:
+      - T1: interpreter_run_2 → validator → translator → orchestrator → END
+      - T2/T3/T4: validator → translator → orchestrator → END
 
     Returns:
         Compiled LangGraph state graph ready for execution
@@ -192,7 +250,8 @@ def build_graph():
 
     # Register all nodes
     graph.add_node("classification", classification_node)
-    graph.add_node("interpreter", interpreter_node)
+    graph.add_node("interpreter_run_1", interpreter_node)
+    graph.add_node("interpreter_run_2", interpreter_run_2_node)
     graph.add_node("validator", validator_node)
     graph.add_node("translator", translator_node)
     graph.add_node("orchestrator", orchestrator_node)
@@ -200,9 +259,21 @@ def build_graph():
     # Set entry point
     graph.set_entry_point("classification")
 
-    # Add edges (linear flow for T2/T3 basic pipeline)
-    graph.add_edge("classification", "interpreter")
-    graph.add_edge("interpreter", "validator")
+    # Add edges
+    graph.add_edge("classification", "interpreter_run_1")
+
+    # Conditional routing after interpreter_run_1
+    graph.add_conditional_edges(
+        "interpreter_run_1",
+        route_after_interpreter_1,
+        {
+            "interpreter_run_2": "interpreter_run_2",
+            "validator": "validator",
+        }
+    )
+
+    # Linear edges after Run 2
+    graph.add_edge("interpreter_run_2", "validator")
     graph.add_edge("validator", "translator")
     graph.add_edge("translator", "orchestrator")
     graph.add_edge("orchestrator", END)

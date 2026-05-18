@@ -663,6 +663,298 @@ class TestExtractFieldNamesFromXml:
         assert result == ["field_a", "field_b", "field_c"]
 
 
+class TestRouteAfterInterpreter1:
+    """Test suite for route_after_interpreter_1 conditional routing logic."""
+
+    def test_route_after_interpreter_1_t1_routes_to_run2(self, base_orchestrator_state):
+        """
+        T1 payload must route to interpreter_run_2 for dual-agent verification.
+        """
+        # Arrange
+        from backend.core.orchestrator import route_after_interpreter_1
+        state = base_orchestrator_state.copy()
+        state["payload_tier"] = 1
+
+        # Act
+        result = route_after_interpreter_1(state)
+
+        # Assert
+        assert result == "interpreter_run_2"
+
+    def test_route_after_interpreter_1_t2_skips_run2(self, base_orchestrator_state):
+        """
+        T2 payload skips interpreter_run_2 and goes directly to validator.
+        """
+        # Arrange
+        from backend.core.orchestrator import route_after_interpreter_1
+        state = base_orchestrator_state.copy()
+        state["payload_tier"] = 2
+
+        # Act
+        result = route_after_interpreter_1(state)
+
+        # Assert
+        assert result == "validator"
+
+    def test_route_after_interpreter_1_t3_skips_run2(self, base_orchestrator_state):
+        """
+        T3 payload skips interpreter_run_2 and goes directly to validator.
+        """
+        # Arrange
+        from backend.core.orchestrator import route_after_interpreter_1
+        state = base_orchestrator_state.copy()
+        state["payload_tier"] = 3
+
+        # Act
+        result = route_after_interpreter_1(state)
+
+        # Assert
+        assert result == "validator"
+
+    def test_route_after_interpreter_1_t4_skips_run2(self, base_orchestrator_state):
+        """
+        T4 payload skips interpreter_run_2 and goes directly to validator.
+        """
+        # Arrange
+        from backend.core.orchestrator import route_after_interpreter_1
+        state = base_orchestrator_state.copy()
+        state["payload_tier"] = 4
+
+        # Act
+        result = route_after_interpreter_1(state)
+
+        # Assert
+        assert result == "validator"
+
+
+class TestOrchestratorNodeT1DualAgent:
+    """Test suite for orchestrator_node T1 dual-agent verification logic."""
+
+    @pytest.mark.safety
+    def test_orchestrator_node_t1_divergence_hold(
+        self, base_orchestrator_state, mock_t1_classification
+    ):
+        """
+        SAFETY TEST: T1 field with diverging interpreter outputs MUST produce HOLD.
+        This test must never be skipped or marked xfail.
+        """
+        # Arrange
+        state = base_orchestrator_state.copy()
+        state["payload_tier"] = 1
+        state["field_classifications"] = {"weight_limit": mock_t1_classification}
+        state["confidence_scores"] = {"weight_limit": 1.0}
+        state["interpreter_run_1"] = {
+            "weight_limit": {
+                "field_name": "weight_limit",
+                "target_field": "customerId",  # Different!
+                "transformed_value": "250",
+                "confidence": 1.0,
+                "reasoning": "Run 1 mapping",
+                "tier": 1,
+            }
+        }
+        state["interpreter_run_2"] = {
+            "weight_limit": {
+                "field_name": "weight_limit",
+                "target_field": "customer_id",  # Different!
+                "transformed_value": "250",
+                "confidence": 1.0,
+                "reasoning": "Run 2 mapping",
+                "tier": 1,
+            }
+        }
+
+        # Act
+        result = orchestrator_node(state)
+
+        # Assert
+        assert result["decision"] == "HOLD"
+        assert result["translated_payload"] is None
+        assert "diverged" in result["decision_reason"].lower()
+        assert "weight_limit" in result["decision_reason"]
+        assert "customerId" in result["decision_reason"]
+        assert "customer_id" in result["decision_reason"]
+
+    @pytest.mark.safety
+    def test_orchestrator_node_t1_agreement_go(
+        self, base_orchestrator_state, mock_t1_classification
+    ):
+        """
+        SAFETY TEST: T1 field with both runs agreeing and confidence 1.0 MUST produce GO.
+        This test must never be skipped or marked xfail.
+        """
+        # Arrange
+        state = base_orchestrator_state.copy()
+        state["payload_tier"] = 1
+        state["field_classifications"] = {"weight_limit": mock_t1_classification}
+        state["confidence_scores"] = {"weight_limit": 1.0}
+        state["interpreter_run_1"] = {
+            "weight_limit": {
+                "field_name": "weight_limit",
+                "target_field": "customerId",  # Same!
+                "transformed_value": "250",
+                "confidence": 1.0,
+                "reasoning": "Run 1 mapping",
+                "tier": 1,
+            }
+        }
+        state["interpreter_run_2"] = {
+            "weight_limit": {
+                "field_name": "weight_limit",
+                "target_field": "customerId",  # Same!
+                "transformed_value": "250",
+                "confidence": 1.0,
+                "reasoning": "Run 2 mapping",
+                "tier": 1,
+            }
+        }
+
+        # Act
+        result = orchestrator_node(state)
+
+        # Assert
+        assert result["decision"] == "GO"
+        assert result["translated_payload"] == {"id": "test-value"}
+
+    @pytest.mark.safety
+    def test_orchestrator_node_t1_agreement_but_low_confidence_hold(
+        self, base_orchestrator_state, mock_t1_classification
+    ):
+        """
+        SAFETY TEST: T1 field with agreement but confidence below 1.0 MUST produce HOLD.
+        This test must never be skipped or marked xfail.
+        """
+        # Arrange
+        state = base_orchestrator_state.copy()
+        state["payload_tier"] = 1
+        state["field_classifications"] = {"weight_limit": mock_t1_classification}
+        state["confidence_scores"] = {"weight_limit": 0.98}  # Below T1 threshold!
+        state["interpreter_run_1"] = {
+            "weight_limit": {
+                "field_name": "weight_limit",
+                "target_field": "customerId",  # Same!
+                "transformed_value": "250",
+                "confidence": 0.98,
+                "reasoning": "Run 1 mapping",
+                "tier": 1,
+            }
+        }
+        state["interpreter_run_2"] = {
+            "weight_limit": {
+                "field_name": "weight_limit",
+                "target_field": "customerId",  # Same!
+                "transformed_value": "250",
+                "confidence": 0.98,
+                "reasoning": "Run 2 mapping",
+                "tier": 1,
+            }
+        }
+
+        # Act
+        result = orchestrator_node(state)
+
+        # Assert
+        assert result["decision"] == "HOLD"
+        assert result["translated_payload"] is None
+        assert "0.98" in result["decision_reason"]
+        assert str(CONFIDENCE_THRESHOLDS[1]) in result["decision_reason"]
+
+    def test_orchestrator_node_t1_missing_run2_field_continues(
+        self, base_orchestrator_state, mock_t1_classification
+    ):
+        """
+        T1 field present in run_1 but missing in run_2 skips divergence check.
+        Allows orchestrator to continue to confidence check.
+        """
+        # Arrange
+        state = base_orchestrator_state.copy()
+        state["payload_tier"] = 1
+        state["field_classifications"] = {"customer_id": mock_t1_classification}
+        state["confidence_scores"] = {"customer_id": 1.0}
+        state["interpreter_run_1"] = {
+            "customer_id": {
+                "field_name": "customer_id",
+                "target_field": "customerId",
+                "transformed_value": "C-12345",
+                "confidence": 1.0,
+                "reasoning": "Run 1 mapping",
+                "tier": 1,
+            }
+        }
+        state["interpreter_run_2"] = {}  # Empty — field not in run_2
+
+        # Act
+        result = orchestrator_node(state)
+
+        # Assert — should NOT HOLD due to divergence (field not compared)
+        # Should proceed to confidence check and pass (1.0 >= 1.0)
+        assert result["decision"] == "GO"
+        assert result["translated_payload"] == {"id": "test-value"}
+
+    def test_orchestrator_node_t1_multiple_fields_one_diverges(
+        self, base_orchestrator_state, mock_t1_classification
+    ):
+        """
+        T1 payload with multiple fields — one diverges, HOLD immediately.
+        """
+        # Arrange
+        state = base_orchestrator_state.copy()
+        state["payload_tier"] = 1
+        state["field_classifications"] = {
+            "weight_limit": mock_t1_classification,
+            "clearance_level": mock_t1_classification,
+        }
+        state["confidence_scores"] = {
+            "weight_limit": 1.0,
+            "clearance_level": 1.0,
+        }
+        state["interpreter_run_1"] = {
+            "weight_limit": {
+                "field_name": "weight_limit",
+                "target_field": "max_load",  # Same
+                "transformed_value": "250",
+                "confidence": 1.0,
+                "reasoning": "Run 1 mapping",
+                "tier": 1,
+            },
+            "clearance_level": {
+                "field_name": "clearance_level",
+                "target_field": "access_level",  # Different!
+                "transformed_value": "L3",
+                "confidence": 1.0,
+                "reasoning": "Run 1 mapping",
+                "tier": 1,
+            }
+        }
+        state["interpreter_run_2"] = {
+            "weight_limit": {
+                "field_name": "weight_limit",
+                "target_field": "max_load",  # Same
+                "transformed_value": "250",
+                "confidence": 1.0,
+                "reasoning": "Run 2 mapping",
+                "tier": 1,
+            },
+            "clearance_level": {
+                "field_name": "clearance_level",
+                "target_field": "clearance",  # Different!
+                "transformed_value": "L3",
+                "confidence": 1.0,
+                "reasoning": "Run 2 mapping",
+                "tier": 1,
+            }
+        }
+
+        # Act
+        result = orchestrator_node(state)
+
+        # Assert — HOLD on first divergence detected
+        assert result["decision"] == "HOLD"
+        assert result["translated_payload"] is None
+        assert "clearance_level" in result["decision_reason"]
+        assert "diverged" in result["decision_reason"].lower()
+
+
 class TestConfidenceThresholds:
     """Test suite for CONFIDENCE_THRESHOLDS constants."""
 

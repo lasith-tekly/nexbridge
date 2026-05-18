@@ -799,6 +799,371 @@ class TestBuildTargetFieldsList:
         assert "- is_active (boolean)" in result
 
 
+class TestInterpreterRun2Node:
+    """Test suite for interpreter_run_2_node (T1 dual-agent verification)."""
+
+    def test_interpreter_run_2_node_returns_interpreter_run_2(self, mocker):
+        """
+        interpreter_run_2_node populates interpreter_run_2 in state.
+        Verifies that interpreter_run_1 is not modified.
+        """
+        # Arrange
+        xml_payload = """<record>
+    <weight_limit>250</weight_limit>
+</record>"""
+        target_schema = {"max_load": "number"}
+
+        # Create proper FieldClassification object
+        from backend.core.models import FieldClassification
+        mock_classification = Mock(spec=FieldClassification)
+        mock_classification.tier = Tier.T1
+        mock_classification.label = "Safety Critical"
+        mock_classification.confidence_threshold = 1.0
+
+        field_classifications = {
+            "weight_limit": mock_classification,
+        }
+
+        state: NexBridgeState = {
+            "xml_payload": xml_payload,
+            "target_schema": target_schema,
+            "field_classifications": field_classifications,
+            "payload_tier": 1,
+            "interpreter_run_1": {},
+            "interpreter_run_2": {},
+            "validation_result": {},
+            "translated_payload": None,
+            "decision": None,
+            "decision_reason": None,
+            "confidence_scores": {},
+            "audit_log": [],
+            "processing_start_ms": 0,
+        }
+
+        # Mock LLM response
+        mock_field_mapping = Mock(spec=FieldMapping)
+        mock_field_mapping.field_name = "weight_limit"
+        mock_field_mapping.target_field = "max_load"
+        mock_field_mapping.transformed_value = 250
+        mock_field_mapping.confidence = 1.0
+        mock_field_mapping.reasoning = "Direct semantic match"
+        mock_field_mapping.tier = Tier.T1
+        mock_field_mapping.model_dump.return_value = {
+            "field_name": "weight_limit",
+            "target_field": "max_load",
+            "transformed_value": 250,
+            "confidence": 1.0,
+            "reasoning": "Direct semantic match",
+            "tier": 1,
+        }
+
+        mock_llm = MagicMock()
+        mock_structured_llm = MagicMock()
+        mock_structured_llm.invoke.return_value = mock_field_mapping
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+
+        mocker.patch(
+            "backend.core.agents.interpreter.get_llm",
+            return_value=mock_llm
+        )
+
+        # Act
+        from backend.core.agents.interpreter import interpreter_run_2_node
+        result = interpreter_run_2_node(state)
+
+        # Assert
+        assert "interpreter_run_2" in result
+        assert "weight_limit" in result["interpreter_run_2"]
+        assert result["interpreter_run_2"]["weight_limit"]["target_field"] == "max_load"
+        assert result["interpreter_run_2"]["weight_limit"]["confidence"] == 1.0
+        # Verify interpreter_run_1 was not modified (should still be empty)
+        assert result["interpreter_run_1"] == {}
+
+    def test_interpreter_run_2_node_independent_execution(self, mocker):
+        """
+        interpreter_run_2_node executes independently from run_1.
+        Verifies that existing interpreter_run_1 data is unchanged.
+        """
+        # Arrange
+        xml_payload = """<record>
+    <weight_limit>250</weight_limit>
+</record>"""
+        target_schema = {"max_load": "number"}
+
+        # Create proper FieldClassification object
+        from backend.core.models import FieldClassification
+        mock_classification = Mock(spec=FieldClassification)
+        mock_classification.tier = Tier.T1
+        mock_classification.label = "Safety Critical"
+        mock_classification.confidence_threshold = 1.0
+
+        field_classifications = {
+            "weight_limit": mock_classification,
+        }
+
+        # Pre-populate interpreter_run_1 with existing data
+        existing_run_1_data = {
+            "weight_limit": {
+                "field_name": "weight_limit",
+                "target_field": "weight_capacity",  # Different target!
+                "transformed_value": 250,
+                "confidence": 1.0,
+                "reasoning": "Run 1 mapping",
+                "tier": 1,
+            }
+        }
+
+        state: NexBridgeState = {
+            "xml_payload": xml_payload,
+            "target_schema": target_schema,
+            "field_classifications": field_classifications,
+            "payload_tier": 1,
+            "interpreter_run_1": existing_run_1_data,
+            "interpreter_run_2": {},
+            "validation_result": {},
+            "translated_payload": None,
+            "decision": None,
+            "decision_reason": None,
+            "confidence_scores": {"weight_limit": 1.0},
+            "audit_log": [],
+            "processing_start_ms": 0,
+        }
+
+        # Mock LLM response for run_2 (different target_field)
+        mock_field_mapping = Mock(spec=FieldMapping)
+        mock_field_mapping.field_name = "weight_limit"
+        mock_field_mapping.target_field = "max_load"  # Different from run_1!
+        mock_field_mapping.transformed_value = 250
+        mock_field_mapping.confidence = 1.0
+        mock_field_mapping.reasoning = "Run 2 mapping"
+        mock_field_mapping.tier = Tier.T1
+        mock_field_mapping.model_dump.return_value = {
+            "field_name": "weight_limit",
+            "target_field": "max_load",
+            "transformed_value": 250,
+            "confidence": 1.0,
+            "reasoning": "Run 2 mapping",
+            "tier": 1,
+        }
+
+        mock_llm = MagicMock()
+        mock_structured_llm = MagicMock()
+        mock_structured_llm.invoke.return_value = mock_field_mapping
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+
+        mocker.patch(
+            "backend.core.agents.interpreter.get_llm",
+            return_value=mock_llm
+        )
+
+        # Act
+        from backend.core.agents.interpreter import interpreter_run_2_node
+        result = interpreter_run_2_node(state)
+
+        # Assert
+        assert "interpreter_run_2" in result
+        assert result["interpreter_run_2"]["weight_limit"]["target_field"] == "max_load"
+        # Verify interpreter_run_1 is unchanged (same content)
+        assert result["interpreter_run_1"] == existing_run_1_data
+        assert result["interpreter_run_1"]["weight_limit"]["target_field"] == "weight_capacity"
+
+    def test_interpreter_run_2_node_produces_same_structure_as_run1(self, mocker):
+        """
+        interpreter_run_2_node produces same dict structure as interpreter_node.
+        Both should have identical field mapping structure.
+        """
+        # Arrange
+        xml_payload = """<record>
+    <weight_limit>250</weight_limit>
+    <clearance_level>L3</clearance_level>
+</record>"""
+        target_schema = {
+            "max_load": "number",
+            "access_level": "string",
+        }
+
+        # Create proper FieldClassification objects
+        from backend.core.models import FieldClassification
+        mock_classification_1 = Mock(spec=FieldClassification)
+        mock_classification_1.tier = Tier.T1
+        mock_classification_1.label = "Safety Critical"
+        mock_classification_1.confidence_threshold = 1.0
+
+        mock_classification_2 = Mock(spec=FieldClassification)
+        mock_classification_2.tier = Tier.T1
+        mock_classification_2.label = "Safety Critical"
+        mock_classification_2.confidence_threshold = 1.0
+
+        field_classifications = {
+            "weight_limit": mock_classification_1,
+            "clearance_level": mock_classification_2,
+        }
+
+        state: NexBridgeState = {
+            "xml_payload": xml_payload,
+            "target_schema": target_schema,
+            "field_classifications": field_classifications,
+            "payload_tier": 1,
+            "interpreter_run_1": {},
+            "interpreter_run_2": {},
+            "validation_result": {},
+            "translated_payload": None,
+            "decision": None,
+            "decision_reason": None,
+            "confidence_scores": {},
+            "audit_log": [],
+            "processing_start_ms": 0,
+        }
+
+        # Mock LLM responses
+        call_count = [0]
+
+        def mock_invoke_side_effect(prompt):
+            call_count[0] += 1
+            call_num = call_count[0]
+
+            m = Mock(spec=FieldMapping)
+            if call_num == 1:
+                m.field_name = "weight_limit"
+                m.target_field = "max_load"
+                m.transformed_value = 250
+                m.confidence = 1.0
+                m.reasoning = "Mapping 1"
+                m.tier = Tier.T1
+                m.model_dump.return_value = {
+                    "field_name": "weight_limit",
+                    "target_field": "max_load",
+                    "transformed_value": 250,
+                    "confidence": 1.0,
+                    "reasoning": "Mapping 1",
+                    "tier": 1,
+                }
+            else:
+                m.field_name = "clearance_level"
+                m.target_field = "access_level"
+                m.transformed_value = "L3"
+                m.confidence = 1.0
+                m.reasoning = "Mapping 2"
+                m.tier = Tier.T1
+                m.model_dump.return_value = {
+                    "field_name": "clearance_level",
+                    "target_field": "access_level",
+                    "transformed_value": "L3",
+                    "confidence": 1.0,
+                    "reasoning": "Mapping 2",
+                    "tier": 1,
+                }
+            return m
+
+        mock_llm = MagicMock()
+        mock_structured_llm = MagicMock()
+        mock_structured_llm.invoke.side_effect = mock_invoke_side_effect
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+
+        mocker.patch(
+            "backend.core.agents.interpreter.get_llm",
+            return_value=mock_llm
+        )
+
+        # Act - Run both interpreter_node and interpreter_run_2_node
+        from backend.core.agents.interpreter import interpreter_node, interpreter_run_2_node
+
+        # Reset mock for run_1
+        call_count[0] = 0
+        run1_result = interpreter_node(state)
+
+        # Reset mock for run_2
+        call_count[0] = 0
+        run2_result = interpreter_run_2_node(state)
+
+        # Assert - Both have same field names
+        assert set(run1_result["interpreter_run_1"].keys()) == {"weight_limit", "clearance_level"}
+        assert set(run2_result["interpreter_run_2"].keys()) == {"weight_limit", "clearance_level"}
+
+        # Assert - Both have same dict keys (field structure)
+        run1_field_keys = set(run1_result["interpreter_run_1"]["weight_limit"].keys())
+        run2_field_keys = set(run2_result["interpreter_run_2"]["weight_limit"].keys())
+
+        assert run1_field_keys == run2_field_keys
+        assert "target_field" in run1_field_keys
+        assert "transformed_value" in run1_field_keys
+        assert "confidence" in run1_field_keys
+        assert "reasoning" in run1_field_keys
+        assert "tier" in run1_field_keys
+
+    def test_interpreter_run_2_node_does_not_populate_confidence_scores(self, mocker):
+        """
+        interpreter_run_2_node does NOT populate confidence_scores.
+        Only interpreter_node (run_1) populates confidence_scores.
+        """
+        # Arrange
+        xml_payload = """<record>
+    <weight_limit>250</weight_limit>
+</record>"""
+        target_schema = {"max_load": "number"}
+
+        # Create proper FieldClassification object
+        from backend.core.models import FieldClassification
+        mock_classification = Mock(spec=FieldClassification)
+        mock_classification.tier = Tier.T1
+        mock_classification.label = "Safety Critical"
+        mock_classification.confidence_threshold = 1.0
+
+        field_classifications = {
+            "weight_limit": mock_classification,
+        }
+
+        state: NexBridgeState = {
+            "xml_payload": xml_payload,
+            "target_schema": target_schema,
+            "field_classifications": field_classifications,
+            "payload_tier": 1,
+            "interpreter_run_1": {},
+            "interpreter_run_2": {},
+            "validation_result": {},
+            "translated_payload": None,
+            "decision": None,
+            "decision_reason": None,
+            "confidence_scores": {},
+            "audit_log": [],
+            "processing_start_ms": 0,
+        }
+
+        # Mock LLM response
+        mock_field_mapping = Mock(spec=FieldMapping)
+        mock_field_mapping.field_name = "weight_limit"
+        mock_field_mapping.target_field = "max_load"
+        mock_field_mapping.transformed_value = 250
+        mock_field_mapping.confidence = 1.0
+        mock_field_mapping.reasoning = "Direct semantic match"
+        mock_field_mapping.tier = Tier.T1
+        mock_field_mapping.model_dump.return_value = {
+            "field_name": "weight_limit",
+            "target_field": "max_load",
+            "transformed_value": 250,
+            "confidence": 1.0,
+            "reasoning": "Direct semantic match",
+            "tier": 1,
+        }
+
+        mock_llm = MagicMock()
+        mock_structured_llm = MagicMock()
+        mock_structured_llm.invoke.return_value = mock_field_mapping
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+
+        mocker.patch(
+            "backend.core.agents.interpreter.get_llm",
+            return_value=mock_llm
+        )
+
+        # Act
+        from backend.core.agents.interpreter import interpreter_run_2_node
+        result = interpreter_run_2_node(state)
+
+        # Assert - confidence_scores should still be empty
+        assert result["confidence_scores"] == {}
+
+
 class TestBuildLlmPrompt:
     """Test suite for _build_llm_prompt helper function."""
 

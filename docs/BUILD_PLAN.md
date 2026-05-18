@@ -163,7 +163,7 @@ Update the status column as each step is completed.
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 2.14 | T1 dual-agent pattern in orchestrator | backend/core/orchestrator.py | @BackendDeveloper | ⚪ |
+| 2.14 | T1 dual-agent pattern in orchestrator | backend/core/orchestrator.py | @BackendDeveloper | ✅ |
 | 2.15 | Divergence detection + HOLD logic | backend/core/orchestrator.py | @BackendDeveloper | ⚪ |
 | 2.16 | T1 safety tests — divergence + threshold | backend/tests/test_orchestrator.py | @QAEngineer | ⚪ |
 
