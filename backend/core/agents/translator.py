@@ -14,6 +14,25 @@ from backend.core.state import NexBridgeState
 from backend.core.exceptions import TranslationError
 
 
+def _get_mapping_attr(mapping, attr: str):
+    """
+    Safely access mapping attribute from Pydantic object or dict.
+
+    LangGraph serializes Pydantic models to dicts between nodes,
+    so we must handle both forms.
+
+    Args:
+        mapping: Either FieldMapping Pydantic object or dict
+        attr: Attribute name to access
+
+    Returns:
+        Value of the attribute/key
+    """
+    if hasattr(mapping, attr):
+        return getattr(mapping, attr)
+    return mapping[attr]
+
+
 def translator_node(state: NexBridgeState) -> NexBridgeState:
     """
     Builds target JSON payload from interpreter field mappings.
@@ -52,9 +71,9 @@ def translator_node(state: NexBridgeState) -> NexBridgeState:
     # Build target JSON from interpreter mappings
     for field_name, mapping in interpreter_run_1.items():
         try:
-            # Access FieldMapping attributes
-            target_field = mapping.target_field
-            transformed_value = mapping.transformed_value
+            # Access FieldMapping attributes (handle both Pydantic and dict)
+            target_field = _get_mapping_attr(mapping, "target_field")
+            transformed_value = _get_mapping_attr(mapping, "transformed_value")
 
             # Get target type from schema
             target_type = target_schema.get(target_field, "string")

@@ -15,6 +15,25 @@ from backend.core.constants import CONFIDENCE_THRESHOLDS
 from backend.core.models import FieldMapping, FieldClassification
 
 
+def _get_mapping_attr(mapping, attr: str):
+    """
+    Safely access mapping attribute from Pydantic object or dict.
+
+    LangGraph serializes Pydantic models to dicts between nodes,
+    so we must handle both forms.
+
+    Args:
+        mapping: Either FieldMapping Pydantic object or dict
+        attr: Attribute name to access
+
+    Returns:
+        Value of the attribute/key
+    """
+    if hasattr(mapping, attr):
+        return getattr(mapping, attr)
+    return mapping[attr]
+
+
 def validator_node(state: NexBridgeState) -> NexBridgeState:
     """
     Advisory anomaly detector. Checks field mappings against target schema
@@ -135,13 +154,14 @@ def _check_target_field_exists(
     Returns:
         Anomaly dict if check fails, None otherwise
     """
-    if mapping.target_field not in target_schema:
+    target_field = _get_mapping_attr(mapping, "target_field")
+    if target_field not in target_schema:
         return {
             "field_name": field_name,
             "check": "target_field_not_in_schema",
             "severity": _get_severity(tier),
             "detail": (
-                f"Target field '{mapping.target_field}' "
+                f"Target field '{target_field}' "
                 f"not found in target schema"
             )
         }
@@ -196,21 +216,23 @@ def _check_type_mismatch(
     Returns:
         Anomaly dict if check fails, None otherwise
     """
-    target_type = target_schema.get(mapping.target_field)
+    target_field = _get_mapping_attr(mapping, "target_field")
+    transformed_value = _get_mapping_attr(mapping, "transformed_value")
+    target_type = target_schema.get(target_field)
 
     if target_type in ("number", "float", "integer", "int"):
         try:
             if target_type in ("number", "float"):
-                float(mapping.transformed_value)
+                float(transformed_value)
             else:
-                int(mapping.transformed_value)
+                int(transformed_value)
         except (ValueError, TypeError):
             return {
                 "field_name": field_name,
                 "check": "type_mismatch",
                 "severity": _get_severity(tier),
                 "detail": (
-                    f"Value '{mapping.transformed_value}' cannot be "
+                    f"Value '{transformed_value}' cannot be "
                     f"converted to type '{target_type}'"
                 )
             }
