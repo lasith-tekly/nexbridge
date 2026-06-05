@@ -32,6 +32,7 @@ def get_llm(provider: str = None) -> BaseChatModel:
         - "anthropic": Claude models via Anthropic API (default)
         - "ollama": Self-hosted models via Ollama
         - "openai": OpenAI API models
+        - "bedrock": Claude models via Amazon Bedrock (AWS)
 
     Example:
         >>> from backend.core.llm import get_llm
@@ -73,8 +74,23 @@ def get_llm(provider: str = None) -> BaseChatModel:
             temperature=0.0,
         )
 
+    elif provider == "bedrock":
+        from langchain_aws import ChatBedrock
+
+        model_id = os.getenv(
+            "BEDROCK_MODEL_ID",
+            "anthropic.claude-3-5-sonnet-20241022-v2:0"
+        )
+        region = os.getenv("AWS_DEFAULT_REGION", "eu-west-2")
+
+        return ChatBedrock(
+            model_id=model_id,
+            region_name=region,
+            temperature=0.0,
+        )
+
     else:
         raise ValueError(
             f"Unsupported LLM provider: {provider}. "
-            f"Supported: anthropic, ollama, openai"
+            f"Supported: anthropic, ollama, openai, bedrock"
         )
