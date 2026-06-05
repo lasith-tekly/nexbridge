@@ -19,7 +19,7 @@ from backend.core.exceptions import LLMError
 
 
 def _run_interpretation(
-    xml_payload: str,
+    raw_payload: str,
     target_schema: dict,
     field_classifications: dict,
     provider_name: str
@@ -29,7 +29,7 @@ def _run_interpretation(
     Returns FieldMapping objects (not dicts).
 
     Args:
-        xml_payload: Raw XML string
+        raw_payload: Raw input payload string
         target_schema: Flat dict of target field names
         field_classifications: Registry classification results
         provider_name: LLM provider name for error handling
@@ -50,7 +50,7 @@ def _run_interpretation(
     # Process each classified field
     for field_name, classification in field_classifications.items():
         # Extract field value from XML
-        field_value = _extract_field_value_from_xml(xml_payload, field_name)
+        field_value = _extract_field_value_from_xml(raw_payload, field_name)
 
         # Handle both dict and object access
         # (tests may pass dicts, production passes FieldClassification objects)
@@ -99,7 +99,7 @@ def interpreter_node(state: NexBridgeState) -> NexBridgeState:
     using LLM-powered semantic field mapping (Run 1).
 
     Reads:
-        - state["xml_payload"]: Raw XML string
+        - state["raw_payload"]: Raw input payload string
         - state["target_schema"]: Flat dict of target field names
         - state["field_classifications"]: Registry classification results
 
@@ -118,7 +118,7 @@ def interpreter_node(state: NexBridgeState) -> NexBridgeState:
         ValueError: If confidence score is outside [0.0, 1.0] range
     """
 
-    xml_payload = state["xml_payload"]
+    raw_payload = state["raw_payload"]
     target_schema = state["target_schema"]
     field_classifications = state["field_classifications"]
 
@@ -127,7 +127,7 @@ def interpreter_node(state: NexBridgeState) -> NexBridgeState:
 
     # Run interpretation
     mappings = _run_interpretation(
-        xml_payload=xml_payload,
+        raw_payload=raw_payload,
         target_schema=target_schema,
         field_classifications=field_classifications,
         provider_name=provider_name
@@ -166,7 +166,7 @@ def interpreter_run_2_node(state: NexBridgeState) -> NexBridgeState:
     Completely independent from Run 1 — never reads interpreter_run_1.
 
     Reads:
-        - state["xml_payload"]: Raw XML string
+        - state["raw_payload"]: Raw input payload string
         - state["target_schema"]: Flat dict of target field names
         - state["field_classifications"]: Registry classification results
 
@@ -184,7 +184,7 @@ def interpreter_run_2_node(state: NexBridgeState) -> NexBridgeState:
         ValueError: If confidence score is outside [0.0, 1.0] range
     """
 
-    xml_payload = state["xml_payload"]
+    raw_payload = state["raw_payload"]
     target_schema = state["target_schema"]
     field_classifications = state["field_classifications"]
 
@@ -193,7 +193,7 @@ def interpreter_run_2_node(state: NexBridgeState) -> NexBridgeState:
 
     # Run interpretation (completely independent)
     mappings = _run_interpretation(
-        xml_payload=xml_payload,
+        raw_payload=raw_payload,
         target_schema=target_schema,
         field_classifications=field_classifications,
         provider_name=provider_name
@@ -219,12 +219,12 @@ def interpreter_run_2_node(state: NexBridgeState) -> NexBridgeState:
     }
 
 
-def _extract_field_value_from_xml(xml_payload: str, field_name: str) -> str:
+def _extract_field_value_from_xml(raw_payload: str, field_name: str) -> str:
     """
     Extract the value of a field from XML payload using ElementTree.
 
     Args:
-        xml_payload: Raw XML string
+        raw_payload: Raw input payload string
         field_name: Name of the field to extract
 
     Returns:
@@ -234,7 +234,7 @@ def _extract_field_value_from_xml(xml_payload: str, field_name: str) -> str:
         None — returns empty string on parse errors or missing fields
     """
     try:
-        root = ET.fromstring(xml_payload)
+        root = ET.fromstring(raw_payload)
         element = root.find(f".//{field_name}")
         if element is not None and element.text is not None:
             return element.text.strip()

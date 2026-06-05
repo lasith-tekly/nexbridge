@@ -42,7 +42,9 @@ class TestInterpreterNode:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 3,
@@ -118,7 +120,9 @@ class TestInterpreterNode:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 3,
@@ -232,7 +236,9 @@ class TestInterpreterNode:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 3,
@@ -300,7 +306,9 @@ class TestInterpreterNode:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 3,
@@ -350,7 +358,9 @@ class TestInterpreterNode:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 3,
@@ -409,7 +419,9 @@ class TestInterpreterNode:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 3,
@@ -466,7 +478,9 @@ class TestInterpreterNode:
         field_classifications = {}  # Empty!
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 4,
@@ -515,7 +529,9 @@ class TestInterpreterNode:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 3,
@@ -585,7 +601,9 @@ class TestInterpreterNode:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 3,
@@ -825,7 +843,9 @@ class TestInterpreterRun2Node:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 1,
@@ -914,7 +934,9 @@ class TestInterpreterRun2Node:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 1,
@@ -1000,7 +1022,9 @@ class TestInterpreterRun2Node:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 1,
@@ -1114,7 +1138,9 @@ class TestInterpreterRun2Node:
         }
 
         state: NexBridgeState = {
-            "xml_payload": xml_payload,
+            "raw_payload": xml_payload,
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": target_schema,
             "field_classifications": field_classifications,
             "payload_tier": 1,

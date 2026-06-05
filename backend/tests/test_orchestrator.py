@@ -68,7 +68,9 @@ def mock_t4_classification():
 def base_orchestrator_state():
     """Minimal state for orchestrator tests."""
     return {
-        "xml_payload": "<record></record>",
+        "raw_payload": "<record></record>",
+        "source_format": "xml",
+        "target_format": "json",
         "target_schema": {"id": "string"},
         "field_classifications": {},
         "payload_tier": 3,
@@ -424,11 +426,13 @@ class TestClassificationNode:
         """
         # Arrange
         state: NexBridgeState = {
-            "xml_payload": """<record>
+            "raw_payload": """<record>
                 <employee_id>E-12345</employee_id>
                 <department>Operations</department>
                 <start_date>2024-03-01</start_date>
             </record>""",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {},
             "field_classifications": {},
             "payload_tier": 4,
@@ -459,7 +463,7 @@ class TestClassificationNode:
         """
         # Arrange
         state: NexBridgeState = {
-            "xml_payload": "<record><employee_id>E-12345</employee_id></record>",
+            "raw_payload": "<record><employee_id>E-12345</employee_id></record>",
             "target_schema": {},
             "field_classifications": {},
             "payload_tier": 4,
@@ -489,10 +493,12 @@ class TestClassificationNode:
         """
         # Arrange - registry has employee_id as T3, notes as T4
         state: NexBridgeState = {
-            "xml_payload": """<record>
+            "raw_payload": """<record>
                 <employee_id>E-12345</employee_id>
                 <notes>Test note</notes>
             </record>""",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {},
             "field_classifications": {},
             "payload_tier": 4,
@@ -519,10 +525,12 @@ class TestClassificationNode:
         """
         # Arrange - registry has weight_limit as T1
         state: NexBridgeState = {
-            "xml_payload": """<record>
+            "raw_payload": """<record>
                 <weight_limit>250</weight_limit>
                 <notes>Test</notes>
             </record>""",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {},
             "field_classifications": {},
             "payload_tier": 4,
@@ -549,7 +557,7 @@ class TestClassificationNode:
         """
         # Arrange - unknown_field_xyz not in registry
         state: NexBridgeState = {
-            "xml_payload": "<record><unknown_field_xyz>value</unknown_field_xyz></record>",
+            "raw_payload": "<record><unknown_field_xyz>value</unknown_field_xyz></record>",
             "target_schema": {},
             "field_classifications": {},
             "payload_tier": 4,

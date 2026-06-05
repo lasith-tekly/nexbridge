@@ -70,7 +70,9 @@ def mock_t4_classification():
 def base_validator_state():
     """Minimal state for validator tests."""
     return {
-        "xml_payload": "<record></record>",
+        "raw_payload": "<record></record>",
+        "source_format": "xml",
+        "target_format": "json",
         "target_schema": {"id": "string"},
         "field_classifications": {},
         "payload_tier": 3,

@@ -34,7 +34,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"id": "string"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -83,7 +85,9 @@ class TestTranslatorNode:
         mock_mapping_3.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {
                 "id": "string",
                 "dept_code": "string",
@@ -133,7 +137,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T1
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"max_load": "number"},
             "field_classifications": {},
             "payload_tier": 1,
@@ -167,7 +173,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"quantity": "integer"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -201,7 +209,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"cost": "float"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -235,7 +245,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"total": "int"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -271,7 +283,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"max_load": "number"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -305,7 +319,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"quantity": "integer"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -342,7 +358,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"id": "string"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -374,7 +392,9 @@ class TestTranslatorNode:
         """
         # Arrange
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"id": "string"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -408,7 +428,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"id": "string"},  # Does not contain unknown_target
             "field_classifications": {},
             "payload_tier": 3,
@@ -441,7 +463,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"id": "string"},
             "field_classifications": {},
             "payload_tier": 3,

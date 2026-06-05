@@ -151,7 +151,7 @@ def classification_node(state: NexBridgeState) -> NexBridgeState:
     Classifies all fields in XML payload using ClassificationRegistry.
 
     Reads:
-        - state["xml_payload"]: Raw XML string
+        - state["raw_payload"]: Raw input payload (XML or JSON string)
 
     Writes:
         - state["field_classifications"]: Dict of FieldClassification objects
@@ -163,10 +163,10 @@ def classification_node(state: NexBridgeState) -> NexBridgeState:
     Returns:
         Updated state with field_classifications and payload_tier
     """
-    xml_payload = state["xml_payload"]
+    raw_payload = state["raw_payload"]
 
     # Extract field names from XML
-    field_names = extract_field_names_from_xml(xml_payload)
+    field_names = extract_field_names_from_xml(raw_payload)
 
     # Initialize registry
     registry = ClassificationRegistry()
