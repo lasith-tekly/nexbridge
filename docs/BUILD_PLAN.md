@@ -120,58 +120,58 @@ Update the status column as each step is completed.
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 2.01 | Pydantic models + NexBridgeState | backend/core/models.py | @DataArchitect | ⚪ |
-| 2.02 | Custom exception hierarchy | backend/core/exceptions.py | @BackendDeveloper | ⚪ |
+| 2.01 | Pydantic models + NexBridgeState | backend/core/models.py | @DataArchitect | ✅ |
+| 2.02 | Custom exception hierarchy | backend/core/exceptions.py | @BackendDeveloper | ✅ |
 
 ### Classification Registry
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 2.03 | Registry JSON — generic domain fields | backend/core/classification/registry.json | @BackendDeveloper | ⚪ |
-| 2.04 | ClassificationRegistry class | backend/core/classification/registry.py | @BackendDeveloper | ⚪ |
-| 2.05 | Registry unit tests | backend/tests/test_registry.py | @QAEngineer | ⚪ |
+| 2.03 | Registry JSON — generic domain fields | backend/core/classification/registry.json | @DataArchitect | ✅ |
+| 2.04 | ClassificationRegistry class | backend/core/classification/registry.py | @DataArchitect | ✅ |
+| 2.05 | Registry unit tests | backend/tests/test_registry.py | @QAEngineer | ✅ |
 
 ### Interpreter Agent
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 2.06 | InterpreterAgent class + LangChain integration | backend/core/agents/interpreter.py | @BackendDeveloper | ⚪ |
-| 2.07 | Interpreter unit tests | backend/tests/test_interpreter.py | @QAEngineer | ⚪ |
+| 2.06 | InterpreterAgent class + LangChain integration | backend/core/agents/interpreter.py | @BackendDeveloper | ✅ |
+| 2.07 | Interpreter unit tests | backend/tests/test_interpreter.py | @QAEngineer | ✅ |
 
 ### Translator Agent
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 2.08 | TranslatorAgent class | backend/core/agents/translator.py | @BackendDeveloper | ⚪ |
-| 2.09 | Translator unit tests | backend/tests/test_translator.py | @QAEngineer | ⚪ |
+| 2.08 | TranslatorAgent class | backend/core/agents/translator.py | @BackendDeveloper | ✅ |
+| 2.09 | Translator unit tests | backend/tests/test_translator.py | @QAEngineer | ✅ |
 
 ### Orchestrator — Basic Flow
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 2.10 | LangGraph graph — T3/T4 basic flow | backend/core/orchestrator.py | @BackendDeveloper | ⚪ |
-| 2.11 | Orchestrator unit tests — basic flow | backend/tests/test_orchestrator.py | @QAEngineer | ⚪ |
+| 2.10 | LangGraph graph — T3/T4 basic flow | backend/core/orchestrator.py | @BackendDeveloper | ✅ |
+| 2.11 | Orchestrator unit tests — basic flow | backend/tests/test_orchestrator.py | @QAEngineer | ✅ |
 
 ### Validator Agent
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 2.12 | ValidatorAgent class | backend/core/agents/validator.py | @BackendDeveloper | ⚪ |
-| 2.13 | Validator unit tests | backend/tests/test_validator.py | @QAEngineer | ⚪ |
+| 2.12 | ValidatorAgent class | backend/core/agents/validator.py | @BackendDeveloper | ✅ |
+| 2.13 | Validator unit tests | backend/tests/test_validator.py | @QAEngineer | ✅ |
 
 ### T1 Safety Layer
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 2.14 | T1 dual-agent pattern in orchestrator | backend/core/orchestrator.py | @BackendDeveloper | ⚪ |
-| 2.15 | Divergence detection + HOLD logic | backend/core/orchestrator.py | @BackendDeveloper | ⚪ |
-| 2.16 | T1 safety tests — divergence + threshold | backend/tests/test_orchestrator.py | @QAEngineer | ⚪ |
+| 2.14 | T1 dual-agent pattern in orchestrator | backend/core/orchestrator.py | @BackendDeveloper | ✅ |
+| 2.15 | Divergence detection + HOLD logic | backend/core/orchestrator.py | @BackendDeveloper | ✅ |
+| 2.16 | T1 safety tests — divergence + threshold | backend/tests/test_orchestrator.py | @QAEngineer | ✅ |
 
 ### Phase 2 Sign-off
 
 | # | Task | Agent | Status |
 |---|---|---|---|
-| 2.17 | All unit tests passing: pytest tests/ -v | @QAEngineer | ⚪ |
+| 2.17 | All unit tests passing: pytest tests/ -v | @QAEngineer | 🟡 |
 | 2.18 | T3/T4 XML → JSON transformation confirmed | Manual | ⚪ |
 | 2.19 | T1 HOLD scenario confirmed in tests | @QAEngineer | ⚪ |
 | 2.20 | Merge developer → main | @DevOpsEngineer | ⚪ |
@@ -274,8 +274,8 @@ Find the first 🟡 or ⚪ in the list — that is next.
 ## Current Step
 
 ```
-Phase 1 — Step 1.08
-App.tsx — 4-step flow + state management
+Phase 2 — Step 2.17
+All unit tests passing: pytest tests/ -v
 Status: 🟡 In Progress
 ```
 
