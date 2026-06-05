@@ -71,6 +71,12 @@ T1 fields                  always require dual-agent verification
 Audit log entries          immutable — never delete
 Payload tier               T1 field = whole payload is T1
 Orchestrator               only entity that can release a payload
+
+SECRETS RULE — Non-Negotiable:
+Never read, display, modify, or print the contents of .env files.
+.env contains API keys and secrets. If a task requires environment
+variables, ask Lasith to set them manually. Never expose secret
+values in any output.
 ```
 
 ---
