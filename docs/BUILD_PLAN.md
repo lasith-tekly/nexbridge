@@ -164,14 +164,14 @@ Update the status column as each step is completed.
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
 | 2.14 | T1 dual-agent pattern in orchestrator | backend/core/orchestrator.py | @BackendDeveloper | ✅ |
-| 2.15 | Divergence detection + HOLD logic | backend/core/orchestrator.py | @BackendDeveloper | ⚪ |
-| 2.16 | T1 safety tests — divergence + threshold | backend/tests/test_orchestrator.py | @QAEngineer | ⚪ |
+| 2.15 | Divergence detection + HOLD logic | backend/core/orchestrator.py | @BackendDeveloper | ✅ |
+| 2.16 | T1 safety tests — divergence + threshold | backend/tests/test_orchestrator.py | @QAEngineer | ✅ |
 
 ### Phase 2 Sign-off
 
 | # | Task | Agent | Status |
 |---|---|---|---|
-| 2.17 | All unit tests passing: pytest tests/ -v | @QAEngineer | ⚪ |
+| 2.17 | All unit tests passing: pytest tests/ -v | @QAEngineer | 🟡 |
 | 2.18 | T3/T4 XML → JSON transformation confirmed | Manual | ⚪ |
 | 2.19 | T1 HOLD scenario confirmed in tests | @QAEngineer | ⚪ |
 | 2.20 | Merge developer → main | @DevOpsEngineer | ⚪ |
@@ -274,8 +274,8 @@ Find the first 🟡 or ⚪ in the list — that is next.
 ## Current Step
 
 ```
-Phase 1 — Step 1.08
-App.tsx — 4-step flow + state management
+Phase 2 — Step 2.17
+All unit tests passing: pytest tests/ -v
 Status: 🟡 In Progress
 ```
 
