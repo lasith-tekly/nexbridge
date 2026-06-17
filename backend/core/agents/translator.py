@@ -12,6 +12,7 @@ from typing import Any
 
 from backend.core.state import NexBridgeState
 from backend.core.exceptions import TranslationError
+from backend.core.format_registry import get_translator
 
 
 def _get_mapping_attr(mapping, attr: str):
@@ -66,44 +67,27 @@ def translator_node(state: NexBridgeState) -> NexBridgeState:
 
     interpreter_run_1 = state["interpreter_run_1"]
     target_schema = state["target_schema"]
-    output = {}
+    target_format = state.get("target_format", "json")
 
-    # Build target JSON from interpreter mappings
-    for field_name, mapping in interpreter_run_1.items():
-        try:
-            # Access FieldMapping attributes (handle both Pydantic and dict)
-            target_field = _get_mapping_attr(mapping, "target_field")
-            transformed_value = _get_mapping_attr(mapping, "transformed_value")
+    translator = get_translator(target_format)
 
-            # Get target type from schema
-            target_type = target_schema.get(target_field, "string")
+    if target_format == "xml":
+        result = translator.build(
+            field_mappings=interpreter_run_1,
+            target_schema=target_schema,
+            root_element=state.get("root_element", "payload"),
+        )
+    else:
+        result = translator.build(
+            field_mappings=interpreter_run_1,
+            target_schema=target_schema,
+        )
 
-            # Convert value to target type
-            converted_value = _convert_value_to_type(
-                transformed_value,
-                target_type,
-                field_name
-            )
-
-            output[target_field] = converted_value
-
-            # Log each field mapping
-            print(
-                f"[TRANSLATOR] field={field_name} → {target_field} "
-                f"= {converted_value}"
-            )
-
-        except Exception as e:
-            raise TranslationError(
-                field_name=field_name,
-                reason=f"Failed to build target field '{target_field}': {str(e)}"
-            )
-
-    print(f"[TRANSLATOR] Built payload with {len(output)} fields")
+    print(f"[TRANSLATOR] Built payload with {len(interpreter_run_1)} fields")
 
     return {
         **state,
-        "translated_payload": output,
+        "translated_payload": result,
     }
 
 

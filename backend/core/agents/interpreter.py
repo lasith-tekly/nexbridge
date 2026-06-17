@@ -22,7 +22,8 @@ def _run_interpretation(
     raw_payload: str,
     target_schema: dict,
     field_classifications: dict,
-    provider_name: str
+    provider_name: str,
+    parsed_fields: dict
 ) -> dict[str, FieldMapping]:
     """
     Private helper that runs LLM-powered semantic field mapping.
@@ -49,8 +50,8 @@ def _run_interpretation(
 
     # Process each classified field
     for field_name, classification in field_classifications.items():
-        # Extract field value from XML
-        field_value = _extract_field_value_from_xml(raw_payload, field_name)
+        # Read field value from pre-parsed fields dict
+        field_value = parsed_fields.get(field_name, "")
 
         # Handle both dict and object access
         # (tests may pass dicts, production passes FieldClassification objects)
@@ -121,6 +122,7 @@ def interpreter_node(state: NexBridgeState) -> NexBridgeState:
     raw_payload = state["raw_payload"]
     target_schema = state["target_schema"]
     field_classifications = state["field_classifications"]
+    parsed_fields = state.get("parsed_fields", {})
 
     # Get provider name for error handling
     provider_name = os.getenv("LLM_PROVIDER", "anthropic")
@@ -130,7 +132,8 @@ def interpreter_node(state: NexBridgeState) -> NexBridgeState:
         raw_payload=raw_payload,
         target_schema=target_schema,
         field_classifications=field_classifications,
-        provider_name=provider_name
+        provider_name=provider_name,
+        parsed_fields=parsed_fields,
     )
 
     # Extract confidence_scores using attribute access (not dict key access)
@@ -187,6 +190,7 @@ def interpreter_run_2_node(state: NexBridgeState) -> NexBridgeState:
     raw_payload = state["raw_payload"]
     target_schema = state["target_schema"]
     field_classifications = state["field_classifications"]
+    parsed_fields = state.get("parsed_fields", {})
 
     # Get provider name for error handling
     provider_name = os.getenv("LLM_PROVIDER", "anthropic")
@@ -196,7 +200,8 @@ def interpreter_run_2_node(state: NexBridgeState) -> NexBridgeState:
         raw_payload=raw_payload,
         target_schema=target_schema,
         field_classifications=field_classifications,
-        provider_name=provider_name
+        provider_name=provider_name,
+        parsed_fields=parsed_fields,
     )
 
     # Convert FieldMapping objects to dicts for state storage

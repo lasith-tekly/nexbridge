@@ -29,9 +29,13 @@ class NexBridgeState(TypedDict):
     target_format: str        # "xml" or "json"
     target_schema: dict       # Target schema definition
 
-    # Classification — written by registry node
+    # Classification — written by classification_node
     field_classifications: dict
     payload_tier: int  # 1, 2, 3, or 4
+    parsed_fields: dict  # {field_name: str_value} from parser adapter
+
+    # XML output config — set by FastAPI layer (XML target only)
+    root_element: Optional[str]  # XML root tag, defaults to "payload"
 
     # Interpretation — written by interpreter node(s)
     interpreter_run_1: dict  # All fields
