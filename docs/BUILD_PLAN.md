@@ -188,6 +188,7 @@ Update the status column as each step is completed.
 | 3.00b | XML parser adapter | backend/core/parsers/xml_parser.py | @BackendDeveloper | ✅ |
 | 3.00c | JSON parser adapter | backend/core/parsers/json_parser.py | @BackendDeveloper | ✅ |
 | 3.00d | XML translator adapter | backend/core/translators/xml_translator.py | @BackendDeveloper | ✅ |
+| 3.00e | JSON translator adapter | backend/core/translators/json_translator.py | @BackendDeveloper | ✅ |
 
 ### FastAPI Layer
 
