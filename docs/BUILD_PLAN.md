@@ -186,6 +186,7 @@ Update the status column as each step is completed.
 |---|---|---|---|---|
 | 3.00a | Update NexBridgeState for bidirectional formats | backend/core/state.py | @DataArchitect | ✅ |
 | 3.00b | XML parser adapter | backend/core/parsers/xml_parser.py | @BackendDeveloper | ✅ |
+| 3.00c | JSON parser adapter | backend/core/parsers/json_parser.py | @BackendDeveloper | ✅ |
 
 ### FastAPI Layer
 
