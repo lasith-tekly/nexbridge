@@ -185,6 +185,7 @@ Update the status column as each step is completed.
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
 | 3.00a | Update NexBridgeState for bidirectional formats | backend/core/state.py | @DataArchitect | ✅ |
+| 3.00b | XML parser adapter | backend/core/parsers/xml_parser.py | @BackendDeveloper | ✅ |
 
 ### FastAPI Layer
 

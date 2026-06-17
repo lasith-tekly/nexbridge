@@ -382,3 +382,43 @@ class LLMError(NexBridgeError):
     def __str__(self) -> str:
         """Return formatted error with provider and reason."""
         return f"[LLM ERROR] provider={self.provider} reason={self.reason}"
+
+
+# --- Parser Exceptions ---
+
+class ParseError(NexBridgeError):
+    """
+    Raised when input payload cannot be parsed.
+
+    This occurs when:
+    - XML is malformed or not well-formed
+    - Input format does not match expected structure
+    """
+
+    def __init__(
+        self,
+        input_format: str,
+        reason: str,
+        message: Optional[str] = None,
+        context: Optional[dict] = None
+    ):
+        """
+        Initialize parse error.
+
+        Args:
+            input_format: The input format that failed (e.g. "xml")
+            reason: Why parsing failed
+            message: Optional custom error message
+            context: Optional additional context
+        """
+        self.input_format = input_format
+        self.reason = reason
+
+        if message is None:
+            message = f"Failed to parse {input_format} payload: {reason}"
+
+        super().__init__(message, context)
+
+    def __str__(self) -> str:
+        """Return formatted error with format and reason."""
+        return f"[PARSE ERROR] format={self.input_format} reason={self.reason}"
