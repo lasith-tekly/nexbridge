@@ -25,7 +25,7 @@ class XmlParser:
         Raises ParseError if XML is malformed.
         """
         root = self._parse_root(raw_payload)
-        fields = {child.tag: child.text or "" for child in root}
+        fields = {self._local_name(child.tag): child.text or "" for child in root}
         print(f"[XML_PARSER] Parsed {len(fields)} fields from XML")
         return fields
 
@@ -37,9 +37,15 @@ class XmlParser:
         Raises ParseError if XML is malformed.
         """
         root = self._parse_root(raw_payload)
-        names = [child.tag for child in root]
+        names = [self._local_name(child.tag) for child in root]
         print(f"[XML_PARSER] Extracted {len(names)} field names from XML")
         return names
+
+    def _local_name(self, tag: str) -> str:
+        """Strip Clark-notation namespace from tag, e.g. {http://...}name → name."""
+        if tag.startswith("{"):
+            return tag.split("}", 1)[1]
+        return tag
 
     def _parse_root(self, raw_payload: str) -> ET.Element:
         """Parse raw XML and return root element, raising ParseError on failure."""
