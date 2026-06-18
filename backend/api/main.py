@@ -28,6 +28,9 @@ from backend.api.schemas import (
     RegistryFieldInfo,
     ClassifyRequest,
     ClassifyResponse,
+    AnalyseRequest,
+    AnalyseResponse,
+    ExportRequest,
 )
 
 
@@ -180,3 +183,21 @@ async def classify(request: ClassifyRequest) -> ClassifyResponse:
     except Exception as e:
         print(f"[API] Classify error: {e}")
         raise HTTPException(status_code=500, detail="Classification failed")
+
+
+@app.post("/registry/analyse", response_model=AnalyseResponse)
+async def analyse_registry(request: AnalyseRequest) -> AnalyseResponse:
+    """Stub — Registry analysis is available in Phase 4."""
+    raise HTTPException(
+        status_code=501,
+        detail="Registry analysis is available in Phase 4. Use registry.json directly for now.",
+    )
+
+
+@app.post("/registry/export", response_model=None)
+async def export_registry(request: ExportRequest) -> None:
+    """Stub — Registry export is available in Phase 4."""
+    raise HTTPException(
+        status_code=501,
+        detail="Registry export is available in Phase 4. Use registry.json directly for now.",
+    )

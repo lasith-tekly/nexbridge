@@ -197,3 +197,107 @@ class ClassifyResponse(BaseModel):
         ...,
         description="Per-field classification results"
     )
+
+
+# ── Phase 4 stub schemas ──────────────────────────────────────────────────────
+
+class AnalyseRequest(BaseModel):
+    """Request payload for the POST /registry/analyse stub endpoint."""
+
+    payload: str = Field(
+        ...,
+        description="Raw payload to analyse"
+    )
+    source_format: str = Field(
+        default="xml",
+        description="Input format: 'xml' or 'json'"
+    )
+
+
+class AnalysedField(BaseModel):
+    """Suggested tier classification for a single field."""
+
+    field_name: str = Field(
+        ...,
+        description="Field name from the payload"
+    )
+    suggested_tier: int = Field(
+        ...,
+        ge=1,
+        le=4,
+        description="Suggested classification tier (1–4)"
+    )
+    suggested_label: str = Field(
+        ...,
+        description="Human-readable tier label"
+    )
+    reasoning: str = Field(
+        ...,
+        description="LLM reasoning for the suggestion"
+    )
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score for the suggestion"
+    )
+
+
+class AnalyseResponse(BaseModel):
+    """Response from the POST /registry/analyse stub endpoint."""
+
+    fields: list[AnalysedField] = Field(
+        ...,
+        description="Suggested field classifications"
+    )
+    source_format: str = Field(
+        ...,
+        description="Input format used"
+    )
+    field_count: int = Field(
+        ...,
+        ge=0,
+        description="Number of fields analysed"
+    )
+
+
+class ExportField(BaseModel):
+    """A single field definition for registry export."""
+
+    field_name: str = Field(
+        ...,
+        description="Field name"
+    )
+    tier: int = Field(
+        ...,
+        ge=1,
+        le=4,
+        description="Classification tier (1–4)"
+    )
+    label: str = Field(
+        ...,
+        description="Human-readable tier label"
+    )
+    threshold: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence threshold for this tier"
+    )
+    description: str = Field(
+        default="",
+        description="Optional field description"
+    )
+
+
+class ExportRequest(BaseModel):
+    """Request payload for the POST /registry/export stub endpoint."""
+
+    fields: list[ExportField] = Field(
+        ...,
+        description="Fields to export to registry"
+    )
+    domain: str = Field(
+        default="custom",
+        description="Registry domain name"
+    )

@@ -201,6 +201,8 @@ Update the status column as each step is completed.
 | 3.03 | GET /registry endpoint | backend/api/main.py | @BackendDeveloper | ✅ |
 | 3.04 | GET /health endpoint | backend/api/main.py | @BackendDeveloper | ✅ |
 | 3.05 | POST /classify endpoint | backend/api/main.py | @BackendDeveloper | ✅ |
+| 3.06 | POST /registry/analyse stub | backend/api/main.py | @BackendDeveloper | ✅ |
+| 3.07 | POST /registry/export stub | backend/api/main.py | @BackendDeveloper | ✅ |
 | 3.06 | API endpoint tests | backend/tests/test_api.py | @QAEngineer | ⚪ |
 
 ### Audit Agent
