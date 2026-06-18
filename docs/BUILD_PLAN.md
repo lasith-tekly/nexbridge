@@ -197,7 +197,7 @@ Update the status column as each step is completed.
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
 | 3.01 | API request/response Pydantic schemas | backend/api/schemas.py | @DataArchitect | ✅ |
-| 3.02 | FastAPI app + POST /transform endpoint | backend/api/main.py | @BackendDeveloper | ⚪ |
+| 3.02 | FastAPI app + POST /transform endpoint | backend/api/main.py | @BackendDeveloper | ✅ |
 | 3.03 | GET /registry endpoint | backend/api/main.py | @BackendDeveloper | ⚪ |
 | 3.04 | GET /health endpoint | backend/api/main.py | @BackendDeveloper | ⚪ |
 | 3.05 | POST /classify endpoint | backend/api/main.py | @BackendDeveloper | ⚪ |
