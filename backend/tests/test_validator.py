@@ -76,6 +76,8 @@ def base_validator_state():
         "target_schema": {"id": "string"},
         "field_classifications": {},
         "payload_tier": 3,
+        "parsed_fields": {},
+        "root_element": None,
         "interpreter_run_1": {},
         "interpreter_run_2": {},
         "validation_result": {},

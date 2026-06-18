@@ -55,6 +55,8 @@ class TestInterpreterNode:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -133,6 +135,8 @@ class TestInterpreterNode:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -249,6 +253,8 @@ class TestInterpreterNode:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -319,6 +325,8 @@ class TestInterpreterNode:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -371,6 +379,8 @@ class TestInterpreterNode:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -432,6 +442,8 @@ class TestInterpreterNode:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -491,6 +503,8 @@ class TestInterpreterNode:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -542,6 +556,8 @@ class TestInterpreterNode:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -614,6 +630,8 @@ class TestInterpreterNode:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -856,6 +874,8 @@ class TestInterpreterRun2Node:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -947,6 +967,8 @@ class TestInterpreterRun2Node:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {"weight_limit": 1.0},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -1035,6 +1057,8 @@ class TestInterpreterRun2Node:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
@@ -1151,6 +1175,8 @@ class TestInterpreterRun2Node:
             "decision": None,
             "decision_reason": None,
             "confidence_scores": {},
+            "parsed_fields": {},
+            "root_element": None,
             "audit_log": [],
             "processing_start_ms": 0,
         }
