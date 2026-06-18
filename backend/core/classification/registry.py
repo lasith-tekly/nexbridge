@@ -149,6 +149,18 @@ class ClassificationRegistry:
 
         return payload_tier
 
+    def list_all_fields(self) -> dict:
+        """Return a copy of all registered fields as a plain dict."""
+        return dict(self._fields)
+
+    def get_version(self) -> str:
+        """Return the registry version string."""
+        return self._version
+
+    def get_domain(self) -> str:
+        """Return the registry domain string."""
+        return self._domain
+
     def list_fields_by_tier(self, tier: int) -> list[str]:
         """
         List all field names for a given tier.
