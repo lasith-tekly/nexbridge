@@ -217,9 +217,9 @@ Update the status column as each step is completed.
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 3.09 | Update nexbridgeApi.ts — real API calls | src/services/nexbridgeApi.ts | @FrontendDeveloper | ⚪ |
-| 3.10 | Remove mock data from pipeline flow | src/pages/PipelinePage.tsx | @FrontendDeveloper | ⚪ |
-| 3.11 | Handle real API loading + error states | src/pages/ | @FrontendDeveloper | ⚪ |
+| 3.09 | Update nexbridgeApi.ts — real API calls | src/services/nexbridgeApi.ts | @FrontendDeveloper | ✅ |
+| 3.10 | Remove mock data from pipeline flow | src/pages/PipelinePage.tsx | @FrontendDeveloper | ✅ |
+| 3.11 | Handle real API loading + error states | src/pages/ | @FrontendDeveloper | ✅ |
 
 ### Phase 3 Sign-off
 
