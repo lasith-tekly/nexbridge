@@ -18,6 +18,7 @@ from backend.core.classification.registry import ClassificationRegistry
 from backend.core.agents.interpreter import interpreter_node, interpreter_run_2_node
 from backend.core.agents.validator import validator_node
 from backend.core.agents.translator import translator_node
+from backend.core.agents.audit import audit_node
 from backend.core.format_registry import get_parser
 
 
@@ -264,6 +265,7 @@ def build_graph():
     graph.add_node("validator", validator_node)
     graph.add_node("translator", translator_node)
     graph.add_node("orchestrator", orchestrator_node)
+    graph.add_node("audit", audit_node)
 
     # Set entry point
     graph.set_entry_point("classification")
@@ -285,7 +287,8 @@ def build_graph():
     graph.add_edge("interpreter_run_2", "validator")
     graph.add_edge("validator", "translator")
     graph.add_edge("translator", "orchestrator")
-    graph.add_edge("orchestrator", END)
+    graph.add_edge("orchestrator", "audit")
+    graph.add_edge("audit", END)
 
     # Compile and return
     return graph.compile()

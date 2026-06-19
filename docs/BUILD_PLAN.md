@@ -209,8 +209,9 @@ Update the status column as each step is completed.
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 3.07 | AuditAgent class — immutable logging | backend/core/agents/audit.py | @BackendDeveloper | ⚪ |
-| 3.08 | Audit unit tests | backend/tests/test_audit.py | @QAEngineer | ⚪ |
+| 3.07 | AuditAgent class — immutable logging | backend/core/agents/audit.py | @BackendDeveloper | ✅ |
+| 3.08 | Audit unit tests | backend/tests/test_audit.py | @QAEngineer | ✅ |
+| 3.09 | Wire audit_node into LangGraph pipeline | backend/core/orchestrator.py | @BackendDeveloper | ✅ |
 
 ### Frontend — Connect to Real Backend
 
