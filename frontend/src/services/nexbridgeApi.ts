@@ -1,47 +1,50 @@
-import type { TransformResponse } from '@/types/nexbridge.types';
-import { mockGoResponse } from '@/mocks/transformResponse';
+import type { TransformResponse, ClassifyResponse } from '@/types/nexbridge.types';
 
-const API_BASE_URL = 'http://localhost:8000';
+const BASE_URL = 'http://localhost:8000';
 
 export const nexbridgeApi = {
+
   transform: async (
-    xmlPayload: string,
-    targetSchema: object
+    payload: string,
+    sourceFormat: string,
+    targetFormat: string,
+    targetSchema: Record<string, string>,
+    rootElement?: string
   ): Promise<TransformResponse> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(mockGoResponse);
-      }, 2000);
+    const res = await fetch(`${BASE_URL}/transform`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        payload,
+        source_format: sourceFormat,
+        target_format: targetFormat,
+        target_schema: targetSchema,
+        root_element: rootElement ?? 'payload',
+      }),
     });
+    if (!res.ok) throw new Error(`Transform failed: ${res.status}`);
+    return res.json();
   },
 
-  getRegistry: async (): Promise<{ fields: Record<string, number> }> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          fields: {
-            MTOW: 1,
-            ZFW: 1,
-            FLT_NUM: 2,
-            DEPARTURE_TIME: 2,
-            ARRIVAL_TIME: 3,
-            PASSENGER_COUNT: 3,
-            AIRLINE_CODE: 4,
-            AIRCRAFT_TYPE: 4
-          }
-        });
-      }, 500);
+  classify: async (fieldNames: string[]): Promise<ClassifyResponse> => {
+    const res = await fetch(`${BASE_URL}/classify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field_names: fieldNames }),
     });
+    if (!res.ok) throw new Error(`Classify failed: ${res.status}`);
+    return res.json();
   },
 
-  healthCheck: async (): Promise<{ status: string; version: string }> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          status: 'healthy',
-          version: '1.0.0'
-        });
-      }, 300);
-    });
-  }
+  getRegistry: async () => {
+    const res = await fetch(`${BASE_URL}/registry`);
+    if (!res.ok) throw new Error(`Registry failed: ${res.status}`);
+    return res.json();
+  },
+
+  healthCheck: async () => {
+    const res = await fetch(`${BASE_URL}/health`);
+    if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
+    return res.json();
+  },
 };

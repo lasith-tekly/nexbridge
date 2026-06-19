@@ -4,13 +4,25 @@ export type Tier = 1 | 2 | 3 | 4;
 export type Scenario = 'GO' | 'HOLD';
 
 export interface TransformResponse {
-  status: Decision;
-  transformed_payload: object | null;
-  payload_tier: Tier;
+  decision: Decision;
   decision_reason: string;
+  payload_tier: number;
+  translated_payload: string | null;
   confidence_scores: Record<string, number>;
-  audit_log: AuditEntry[];
+  anomaly_count: number;
   processing_time_ms: number;
+  audit_log: AuditEntry[];
+}
+
+export interface RegistryFieldInfo {
+  tier: number;
+  label: string;
+  threshold: number;
+}
+
+export interface ClassifyResponse {
+  payload_tier: number;
+  classifications: Record<string, RegistryFieldInfo>;
 }
 
 export interface AuditEntry {
