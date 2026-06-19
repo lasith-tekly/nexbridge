@@ -4,12 +4,13 @@ import { DivergenceDetail } from '@/components/DivergenceDetail'
 import { XmlViewer } from '@/components/XmlViewer'
 import { JsonViewer } from '@/components/JsonViewer'
 import { AuditLog } from '@/components/AuditLog'
-import type { Scenario, AuditEntry, DivergenceDetail as DivergenceDetailType } from '@/types/nexbridge.types'
+import type { Scenario, AuditEntry, DivergenceDetail as DivergenceDetailType, TransformResponse } from '@/types/nexbridge.types'
 
 interface ResultPageProps {
   onBack: () => void;
   onRestart: () => void;
   scenario: Scenario;
+  transformResult: TransformResponse | null;
 }
 
 const GO_XML = `<record>
@@ -167,13 +168,39 @@ const DIVERGENCE_DETAIL: DivergenceDetailType = {
 export const ResultPage: React.FC<ResultPageProps> = ({
   onBack,
   onRestart,
-  scenario
+  scenario,
+  transformResult,
 }) => {
   const [showContent, setShowContent] = useState(false)
 
   useEffect(() => {
     setShowContent(true)
   }, [])
+
+  const decision = transformResult?.decision ?? (scenario === 'GO' ? 'GO' : 'HOLD')
+  const decisionReason = transformResult?.decision_reason ?? (
+    scenario === 'GO'
+      ? 'Transformation complete — payload released'
+      : 'Payload not released — human review required'
+  )
+  const fieldCount = transformResult
+    ? Object.keys(transformResult.confidence_scores).length
+    : 5
+  const processingTimeMs = transformResult?.processing_time_ms ?? 2100
+  const auditEntries = transformResult?.audit_log?.length
+    ? transformResult.audit_log
+    : (scenario === 'GO' ? GO_AUDIT_ENTRIES : HOLD_AUDIT_ENTRIES)
+
+  const outputContent = (() => {
+    if (!transformResult?.translated_payload) return null
+    try {
+      return JSON.parse(transformResult.translated_payload)
+    } catch {
+      return transformResult.translated_payload
+    }
+  })()
+
+  const isHold = decision === 'HOLD'
 
   return (
     <div className="min-h-[calc(100vh-120px)] bg-gray-950 px-6 py-10">
@@ -182,22 +209,17 @@ export const ResultPage: React.FC<ResultPageProps> = ({
           showContent ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        {scenario === 'GO' ? (
-          <DecisionBadge
-            decision="GO"
-            reason="Transformation complete — payload released"
-            detail="5 fields mapped successfully"
-            processingTimeMs={2100}
-          />
-        ) : (
-          <DecisionBadge
-            decision="HOLD"
-            reason="Payload not released — human review required"
-            detail="T1 field: dual interpreter outputs diverged"
-          />
-        )}
+        <DecisionBadge
+          decision={decision}
+          reason={decisionReason}
+          detail={isHold
+            ? 'T1 field: dual interpreter outputs diverged'
+            : `${fieldCount} fields mapped successfully`
+          }
+          processingTimeMs={processingTimeMs}
+        />
 
-        {scenario === 'HOLD' && (
+        {isHold && (
           <div className="mt-6">
             <DivergenceDetail divergence={DIVERGENCE_DETAIL} />
           </div>
@@ -217,9 +239,11 @@ export const ResultPage: React.FC<ResultPageProps> = ({
 
           <div>
             <h2 className="text-base font-semibold text-white mb-3">
-              System B — Transformed JSON
+              System B — Transformed Output
             </h2>
-            {scenario === 'GO' ? (
+            {!isHold && outputContent ? (
+              <JsonViewer content={outputContent} editable={false} />
+            ) : !isHold ? (
               <JsonViewer content={GO_JSON} editable={false} />
             ) : (
               <div className="bg-gray-900 border border-red-900 rounded-lg p-6 h-full flex flex-col items-center justify-center">
@@ -236,9 +260,7 @@ export const ResultPage: React.FC<ResultPageProps> = ({
         </div>
 
         <div className="mt-6">
-          <AuditLog
-            entries={scenario === 'GO' ? GO_AUDIT_ENTRIES : HOLD_AUDIT_ENTRIES}
-          />
+          <AuditLog entries={auditEntries} />
         </div>
 
         <div className="flex justify-between mt-8">

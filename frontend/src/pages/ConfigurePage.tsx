@@ -5,7 +5,12 @@ import { JsonViewer } from '@/components/JsonViewer'
 import type { Scenario } from '@/types/nexbridge.types'
 
 interface ConfigurePageProps {
-  onNext: () => void;
+  onNext: (
+    payload: string,
+    sourceFormat: string,
+    targetFormat: string,
+    schema: Record<string, string>
+  ) => void;
   onBack: () => void;
   scenario: Scenario;
   setScenario: (scenario: Scenario) => void;
@@ -51,6 +56,9 @@ export const ConfigurePage: React.FC<ConfigurePageProps> = ({
 }) => {
   const [xmlValue, setXmlValue] = useState<string>(GO_XML)
   const [schemaValue, setSchemaValue] = useState<string>(GO_SCHEMA)
+  const [sourceFormat, setSourceFormat] = useState<string>('xml')
+  const [targetFormat, setTargetFormat] = useState<string>('json')
+  const [schemaError, setSchemaError] = useState<string>('')
 
   useEffect(() => {
     if (scenario === 'GO') {
@@ -74,6 +82,31 @@ export const ConfigurePage: React.FC<ConfigurePageProps> = ({
 
         <div className="mb-6">
           <ScenarioToggle scenario={scenario} onChange={setScenario} />
+        </div>
+
+        <div className="flex gap-4 mb-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Source Format</label>
+            <select
+              value={sourceFormat}
+              onChange={e => setSourceFormat(e.target.value)}
+              className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+            >
+              <option value="xml">XML</option>
+              <option value="json">JSON</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Target Format</label>
+            <select
+              value={targetFormat}
+              onChange={e => setTargetFormat(e.target.value)}
+              className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+            >
+              <option value="json">JSON</option>
+              <option value="xml">XML</option>
+            </select>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -126,12 +159,25 @@ export const ConfigurePage: React.FC<ConfigurePageProps> = ({
           >
             ← Back
           </button>
-          <button
-            onClick={onNext}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-          >
-            Run Transformation →
-          </button>
+          <div className="flex flex-col items-end gap-2">
+            {schemaError && (
+              <p className="text-red-400 text-sm">{schemaError}</p>
+            )}
+            <button
+              onClick={() => {
+                try {
+                  const parsedSchema = JSON.parse(schemaValue) as Record<string, string>
+                  setSchemaError('')
+                  onNext(xmlValue, sourceFormat, targetFormat, parsedSchema)
+                } catch {
+                  setSchemaError('Target schema is not valid JSON')
+                }
+              }}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              Run Transformation →
+            </button>
+          </div>
         </div>
       </div>
     </div>
