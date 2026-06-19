@@ -9,9 +9,12 @@ See docs/SOLUTION_AGENTS.md for full specification.
 import time
 
 # Third-party
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
+
+load_dotenv()
 
 # Local — core pipeline
 from backend.core.state import NexBridgeState
