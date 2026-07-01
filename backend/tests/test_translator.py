@@ -6,6 +6,7 @@ payloads from interpreter field mappings with type conversion. No LLM involved.
 These tests validate all translation scenarios, type conversions, and edge cases.
 """
 
+import json
 import pytest
 from unittest.mock import Mock
 from backend.core.agents.translator import (
@@ -34,7 +35,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"id": "string"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -52,11 +55,12 @@ class TestTranslatorNode:
         # Act
         result = translator_node(state)
 
-        # Assert
+        # Assert — translated_payload is now a JSON string
         assert "translated_payload" in result
         assert result["translated_payload"] is not None
-        assert len(result["translated_payload"]) == 1
-        assert result["translated_payload"]["id"] == "E-12345"
+        payload = json.loads(result["translated_payload"])
+        assert len(payload) == 1
+        assert payload["id"] == "E-12345"
 
     def test_translator_node_multiple_fields(self):
         """
@@ -83,7 +87,9 @@ class TestTranslatorNode:
         mock_mapping_3.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {
                 "id": "string",
                 "dept_code": "string",
@@ -109,15 +115,16 @@ class TestTranslatorNode:
         # Act
         result = translator_node(state)
 
-        # Assert
-        assert len(result["translated_payload"]) == 3
-        assert result["translated_payload"]["id"] == "E-12345"
-        assert result["translated_payload"]["dept_code"] == "OPS"
-        assert result["translated_payload"]["hire_date"] == "2024-03-01"
+        # Assert — translated_payload is now a JSON string
+        payload = json.loads(result["translated_payload"])
+        assert len(payload) == 3
+        assert payload["id"] == "E-12345"
+        assert payload["dept_code"] == "OPS"
+        assert payload["hire_date"] == "2024-03-01"
         # Verify source field names are NOT in output
-        assert "employee_id" not in result["translated_payload"]
-        assert "department" not in result["translated_payload"]
-        assert "start_date" not in result["translated_payload"]
+        assert "employee_id" not in payload
+        assert "department" not in payload
+        assert "start_date" not in payload
 
     # --- Type Conversion Tests ---
 
@@ -133,7 +140,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T1
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"max_load": "number"},
             "field_classifications": {},
             "payload_tier": 1,
@@ -151,9 +160,10 @@ class TestTranslatorNode:
         # Act
         result = translator_node(state)
 
-        # Assert
-        assert result["translated_payload"]["max_load"] == 250.0
-        assert isinstance(result["translated_payload"]["max_load"], float)
+        # Assert — translated_payload is now a JSON string
+        payload = json.loads(result["translated_payload"])
+        assert payload["max_load"] == 250.0
+        assert isinstance(payload["max_load"], float)
 
     def test_translator_node_type_conversion_integer(self):
         """
@@ -167,7 +177,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"quantity": "integer"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -185,9 +197,10 @@ class TestTranslatorNode:
         # Act
         result = translator_node(state)
 
-        # Assert
-        assert result["translated_payload"]["quantity"] == 42
-        assert isinstance(result["translated_payload"]["quantity"], int)
+        # Assert — translated_payload is now a JSON string
+        payload = json.loads(result["translated_payload"])
+        assert payload["quantity"] == 42
+        assert isinstance(payload["quantity"], int)
 
     def test_translator_node_type_conversion_float_variant(self):
         """
@@ -201,7 +214,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"cost": "float"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -219,9 +234,10 @@ class TestTranslatorNode:
         # Act
         result = translator_node(state)
 
-        # Assert
-        assert result["translated_payload"]["cost"] == 99.99
-        assert isinstance(result["translated_payload"]["cost"], float)
+        # Assert — translated_payload is now a JSON string
+        payload = json.loads(result["translated_payload"])
+        assert payload["cost"] == 99.99
+        assert isinstance(payload["cost"], float)
 
     def test_translator_node_type_conversion_int_variant(self):
         """
@@ -235,7 +251,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"total": "int"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -253,9 +271,10 @@ class TestTranslatorNode:
         # Act
         result = translator_node(state)
 
-        # Assert
-        assert result["translated_payload"]["total"] == 100
-        assert isinstance(result["translated_payload"]["total"], int)
+        # Assert — translated_payload is now a JSON string
+        payload = json.loads(result["translated_payload"])
+        assert payload["total"] == 100
+        assert isinstance(payload["total"], int)
 
     # --- Graceful Fallback Tests ---
 
@@ -271,7 +290,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"max_load": "number"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -290,8 +311,9 @@ class TestTranslatorNode:
         result = translator_node(state)
 
         # Assert - graceful fallback to string
-        assert result["translated_payload"]["max_load"] == "abc"
-        assert isinstance(result["translated_payload"]["max_load"], str)
+        payload = json.loads(result["translated_payload"])
+        assert payload["max_load"] == "abc"
+        assert isinstance(payload["max_load"], str)
 
     def test_translator_node_type_conversion_fallback_integer(self):
         """
@@ -305,7 +327,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"quantity": "integer"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -324,8 +348,9 @@ class TestTranslatorNode:
         result = translator_node(state)
 
         # Assert - graceful fallback to string
-        assert result["translated_payload"]["quantity"] == "xyz"
-        assert isinstance(result["translated_payload"]["quantity"], str)
+        payload = json.loads(result["translated_payload"])
+        assert payload["quantity"] == "xyz"
+        assert isinstance(payload["quantity"], str)
 
     # --- Early Exit Tests ---
 
@@ -342,7 +367,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"id": "string"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -374,7 +401,9 @@ class TestTranslatorNode:
         """
         # Arrange
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"id": "string"},
             "field_classifications": {},
             "payload_tier": 3,
@@ -392,8 +421,8 @@ class TestTranslatorNode:
         # Act
         result = translator_node(state)
 
-        # Assert
-        assert result["translated_payload"] == {}
+        # Assert — empty JSON object string
+        assert result["translated_payload"] == "{}"
         assert result["translated_payload"] is not None
 
     def test_translator_node_target_field_not_in_schema(self):
@@ -408,7 +437,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"id": "string"},  # Does not contain unknown_target
             "field_classifications": {},
             "payload_tier": 3,
@@ -427,7 +458,8 @@ class TestTranslatorNode:
         result = translator_node(state)
 
         # Assert - defaults to string type, value unchanged
-        assert result["translated_payload"]["unknown_target"] == "some_value"
+        payload = json.loads(result["translated_payload"])
+        assert payload["unknown_target"] == "some_value"
 
     def test_translator_node_immutable_state(self):
         """
@@ -441,7 +473,9 @@ class TestTranslatorNode:
         mock_mapping.tier = Tier.T3
 
         state: NexBridgeState = {
-            "xml_payload": "<record></record>",
+            "raw_payload": "<record></record>",
+            "source_format": "xml",
+            "target_format": "json",
             "target_schema": {"id": "string"},
             "field_classifications": {},
             "payload_tier": 3,

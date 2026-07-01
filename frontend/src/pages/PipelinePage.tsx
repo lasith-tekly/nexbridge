@@ -1,11 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { AgentCard } from '@/components/AgentCard'
-import type { Scenario, AgentStatus, FieldMapping, DivergenceDetail } from '@/types/nexbridge.types'
+import { nexbridgeApi } from '@/services/nexbridgeApi'
+import type { Scenario, AgentStatus, FieldMapping, DivergenceDetail, TransformResponse } from '@/types/nexbridge.types'
 
 interface PipelinePageProps {
   onNext: () => void;
   onBack: () => void;
   scenario: Scenario;
+  payload: string;
+  sourceFormat: string;
+  targetFormat: string;
+  targetSchema: Record<string, string>;
+  onComplete: (result: TransformResponse) => void;
 }
 
 interface AgentStep {
@@ -102,7 +108,12 @@ const CompletionBanner: React.FC<CompletionBannerProps> = ({ scenario, onNext })
 export const PipelinePage: React.FC<PipelinePageProps> = ({
   onNext,
   onBack,
-  scenario
+  scenario,
+  payload,
+  sourceFormat,
+  targetFormat,
+  targetSchema,
+  onComplete,
 }) => {
   const [agentStatuses, setAgentStatuses] = useState<Record<number, AgentStatus>>({
     1: 'idle',
@@ -113,7 +124,9 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
     6: 'idle',
   })
   const [isComplete, setIsComplete] = useState(false)
+  const [apiResult, setApiResult] = useState<TransformResponse | null>(null)
   const hasStarted = useRef(false)
+  const apiCalled = useRef(false)
 
   useEffect(() => {
     if (hasStarted.current) return
@@ -158,11 +171,48 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
     }
   }, [])
 
-  const getFieldMappings = (stepId: number): FieldMapping[] | undefined => {
-    if (stepId === 2) {
-      return scenario === 'GO' ? GO_FIELD_MAPPINGS : HOLD_FIELD_MAPPINGS
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (apiCalled.current) return
+    apiCalled.current = true
+
+    nexbridgeApi.transform(payload, sourceFormat, targetFormat, targetSchema)
+      .then(result => setApiResult(result))
+      .catch(err => {
+        setApiResult({
+          decision: 'HOLD',
+          decision_reason: `API error: ${(err as Error).message}`,
+          payload_tier: 4,
+          translated_payload: null,
+          confidence_scores: {},
+          anomaly_count: 0,
+          processing_time_ms: 0,
+          audit_log: [],
+        })
+      })
+  }, [])
+
+  useEffect(() => {
+    if (isComplete && apiResult) {
+      onComplete(apiResult)
     }
-    return undefined
+  }, [isComplete, apiResult, onComplete])
+
+  const getFieldMappings = (stepId: number): FieldMapping[] | undefined => {
+    if (stepId !== 2) return undefined
+
+    if (apiResult?.confidence_scores &&
+        Object.keys(apiResult.confidence_scores).length > 0) {
+      return Object.entries(apiResult.confidence_scores)
+        .map(([field_name, confidence]) => ({
+          field_name,
+          target_field: field_name,
+          transformed_value: '',
+          confidence,
+          tier: 3 as const,
+        }))
+    }
+    return scenario === 'GO' ? GO_FIELD_MAPPINGS : HOLD_FIELD_MAPPINGS
   }
 
   const getDivergenceDetail = (stepId: number): DivergenceDetail | undefined => {
@@ -173,6 +223,10 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
   }
 
   const isRunning = Object.values(agentStatuses).some(status => status === 'running')
+
+  const displayScenario: Scenario = apiResult?.decision === 'HOLD' ? 'HOLD'
+    : apiResult?.decision === 'GO' ? 'GO'
+    : scenario
 
   return (
     <div className="min-h-[calc(100vh-120px)] bg-gray-950 px-4 py-8">
@@ -217,7 +271,7 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({
               )}
             </div>
           ))}
-          {isComplete && <CompletionBanner scenario={scenario} onNext={onNext} />}
+          {isComplete && <CompletionBanner scenario={displayScenario} onNext={onNext} />}
         </div>
 
         <div className="flex justify-start mt-6">

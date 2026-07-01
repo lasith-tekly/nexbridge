@@ -180,31 +180,46 @@ Update the status column as each step is completed.
 
 ## Phase 3 — FastAPI Integration (Week 3)
 
+### State Foundation
+
+| # | Task | File | Agent | Status |
+|---|---|---|---|---|
+| 3.00a | Update NexBridgeState for bidirectional formats | backend/core/state.py | @DataArchitect | ✅ |
+| 3.00b | XML parser adapter | backend/core/parsers/xml_parser.py | @BackendDeveloper | ✅ |
+| 3.00c | JSON parser adapter | backend/core/parsers/json_parser.py | @BackendDeveloper | ✅ |
+| 3.00d | XML translator adapter | backend/core/translators/xml_translator.py | @BackendDeveloper | ✅ |
+| 3.00e | JSON translator adapter | backend/core/translators/json_translator.py | @BackendDeveloper | ✅ |
+| 3.00f | Wire parsers and translators into pipeline | backend/core/format_registry.py, orchestrator.py, interpreter.py, translator.py | @BackendDeveloper | ✅ |
+| 3.00g | Update test fixtures for new NexBridgeState fields | backend/tests/test_orchestrator.py, test_interpreter.py, test_validator.py | @QAEngineer | ✅ |
+
 ### FastAPI Layer
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 3.01 | API request/response Pydantic schemas | backend/api/schemas.py | @DataArchitect | ⚪ |
-| 3.02 | FastAPI app + POST /transform endpoint | backend/api/main.py | @BackendDeveloper | ⚪ |
-| 3.03 | GET /registry endpoint | backend/api/main.py | @BackendDeveloper | ⚪ |
-| 3.04 | GET /health endpoint | backend/api/main.py | @BackendDeveloper | ⚪ |
-| 3.05 | POST /classify endpoint | backend/api/main.py | @BackendDeveloper | ⚪ |
-| 3.06 | API endpoint tests | backend/tests/test_api.py | @QAEngineer | ⚪ |
+| 3.01 | API request/response Pydantic schemas | backend/api/schemas.py | @DataArchitect | ✅ |
+| 3.02 | FastAPI app + POST /transform endpoint | backend/api/main.py | @BackendDeveloper | ✅ |
+| 3.03 | GET /registry endpoint | backend/api/main.py | @BackendDeveloper | ✅ |
+| 3.04 | GET /health endpoint | backend/api/main.py | @BackendDeveloper | ✅ |
+| 3.05 | POST /classify endpoint | backend/api/main.py | @BackendDeveloper | ✅ |
+| 3.06 | POST /registry/analyse stub | backend/api/main.py | @BackendDeveloper | ✅ |
+| 3.07 | POST /registry/export stub | backend/api/main.py | @BackendDeveloper | ✅ |
+| 3.08 | API endpoint tests | backend/tests/test_api.py | @QAEngineer | ✅ |
 
 ### Audit Agent
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 3.07 | AuditAgent class — immutable logging | backend/core/agents/audit.py | @BackendDeveloper | ⚪ |
-| 3.08 | Audit unit tests | backend/tests/test_audit.py | @QAEngineer | ⚪ |
+| 3.07 | AuditAgent class — immutable logging | backend/core/agents/audit.py | @BackendDeveloper | ✅ |
+| 3.08 | Audit unit tests | backend/tests/test_audit.py | @QAEngineer | ✅ |
+| 3.09 | Wire audit_node into LangGraph pipeline | backend/core/orchestrator.py | @BackendDeveloper | ✅ |
 
 ### Frontend — Connect to Real Backend
 
 | # | Task | File | Agent | Status |
 |---|---|---|---|---|
-| 3.09 | Update nexbridgeApi.ts — real API calls | src/services/nexbridgeApi.ts | @FrontendDeveloper | ⚪ |
-| 3.10 | Remove mock data from pipeline flow | src/pages/PipelinePage.tsx | @FrontendDeveloper | ⚪ |
-| 3.11 | Handle real API loading + error states | src/pages/ | @FrontendDeveloper | ⚪ |
+| 3.09 | Update nexbridgeApi.ts — real API calls | src/services/nexbridgeApi.ts | @FrontendDeveloper | ✅ |
+| 3.10 | Remove mock data from pipeline flow | src/pages/PipelinePage.tsx | @FrontendDeveloper | ✅ |
+| 3.11 | Handle real API loading + error states | src/pages/ | @FrontendDeveloper | ✅ |
 
 ### Phase 3 Sign-off
 
@@ -216,6 +231,7 @@ Update the status column as each step is completed.
 | 3.15 | Audit log shows real transformation entries | Manual | ⚪ |
 | 3.16 | All tests passing: pytest tests/ -v | @QAEngineer | ⚪ |
 | 3.17 | Merge developer → main | @DevOpsEngineer | ⚪ |
+| 3.19 | Fix format selector payload update in ConfigurePage | @FrontendDeveloper | ✅ |
 
 ---
 

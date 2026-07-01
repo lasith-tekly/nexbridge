@@ -4,13 +4,31 @@ import { LandingPage } from '@/pages/LandingPage'
 import { ConfigurePage } from '@/pages/ConfigurePage'
 import { PipelinePage } from '@/pages/PipelinePage'
 import { ResultPage } from '@/pages/ResultPage'
-import type { Scenario } from '@/types/nexbridge.types'
+import type { Scenario, TransformResponse } from '@/types/nexbridge.types'
 
 const App: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(1)
   const [scenario, setScenario] = useState<Scenario>('GO')
+  const [payload, setPayload] = useState<string>('')
+  const [sourceFormat, setSourceFormat] = useState<string>('xml')
+  const [targetFormat, setTargetFormat] = useState<string>('json')
+  const [targetSchema, setTargetSchema] = useState<Record<string, string>>({})
+  const [transformResult, setTransformResult] = useState<TransformResponse | null>(null)
 
   const handleNext = useCallback(() => {
+    setCurrentStep(prev => prev < 4 ? prev + 1 : prev)
+  }, [])
+
+  const handleConfigureNext = useCallback((
+    p: string,
+    sf: string,
+    tf: string,
+    schema: Record<string, string>
+  ) => {
+    setPayload(p)
+    setSourceFormat(sf)
+    setTargetFormat(tf)
+    setTargetSchema(schema)
     setCurrentStep(prev => prev < 4 ? prev + 1 : prev)
   }, [])
 
@@ -21,6 +39,7 @@ const App: React.FC = () => {
   const handleRestart = useCallback(() => {
     setCurrentStep(1)
     setScenario('GO')
+    setTransformResult(null)
   }, [])
 
   const renderPage = () => {
@@ -30,7 +49,7 @@ const App: React.FC = () => {
       case 2:
         return (
           <ConfigurePage
-            onNext={handleNext}
+            onNext={handleConfigureNext}
             onBack={handleBack}
             scenario={scenario}
             setScenario={setScenario}
@@ -42,6 +61,11 @@ const App: React.FC = () => {
             onNext={handleNext}
             onBack={handleBack}
             scenario={scenario}
+            payload={payload}
+            sourceFormat={sourceFormat}
+            targetFormat={targetFormat}
+            targetSchema={targetSchema}
+            onComplete={setTransformResult}
           />
         )
       case 4:
@@ -50,6 +74,7 @@ const App: React.FC = () => {
             onBack={handleBack}
             onRestart={handleRestart}
             scenario={scenario}
+            transformResult={transformResult}
           />
         )
       default:

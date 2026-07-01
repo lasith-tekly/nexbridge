@@ -15,15 +15,27 @@ class NexBridgeState(TypedDict):
     All agent nodes read from and write to this state.
     Each agent owns specific fields and should never modify
     fields owned by other agents.
+
+    Key fields:
+    - raw_payload: Original payload string (XML or JSON)
+    - source_format: Input format ("xml" or "json")
+    - target_format: Desired output format ("xml" or "json")
+    - translated_payload: Serialized output string (XML or JSON), None if HOLD
     """
 
     # Input — set by FastAPI layer, never modified by agents
-    xml_payload: str
-    target_schema: dict
+    raw_payload: str          # Original payload (XML or JSON string)
+    source_format: str        # "xml" or "json"
+    target_format: str        # "xml" or "json"
+    target_schema: dict       # Target schema definition
 
-    # Classification — written by registry node
+    # Classification — written by classification_node
     field_classifications: dict
     payload_tier: int  # 1, 2, 3, or 4
+    parsed_fields: dict  # {field_name: str_value} from parser adapter
+
+    # XML output config — set by FastAPI layer (XML target only)
+    root_element: Optional[str]  # XML root tag, defaults to "payload"
 
     # Interpretation — written by interpreter node(s)
     interpreter_run_1: dict  # All fields
@@ -33,7 +45,7 @@ class NexBridgeState(TypedDict):
     validation_result: dict
 
     # Translation — written by translator node
-    translated_payload: Optional[dict]  # None if decision is HOLD
+    translated_payload: Optional[str]  # Serialized output (XML or JSON string), None if HOLD
 
     # Decision — written by orchestrator node
     decision: Optional[str]  # "GO", "HOLD", or "ESCALATE"

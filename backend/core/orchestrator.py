@@ -18,6 +18,8 @@ from backend.core.classification.registry import ClassificationRegistry
 from backend.core.agents.interpreter import interpreter_node, interpreter_run_2_node
 from backend.core.agents.validator import validator_node
 from backend.core.agents.translator import translator_node
+from backend.core.agents.audit import audit_node
+from backend.core.format_registry import get_parser
 
 
 def orchestrator_node(state: NexBridgeState) -> NexBridgeState:
@@ -148,25 +150,32 @@ def orchestrator_node(state: NexBridgeState) -> NexBridgeState:
 
 def classification_node(state: NexBridgeState) -> NexBridgeState:
     """
-    Classifies all fields in XML payload using ClassificationRegistry.
+    Classifies all fields in the input payload using ClassificationRegistry.
+    Format-agnostic — delegates parsing to the appropriate adapter via
+    source_format (defaults to "xml" for backward compatibility).
 
     Reads:
-        - state["xml_payload"]: Raw XML string
+        - state["raw_payload"]: Raw input payload (XML or JSON string)
+        - state["source_format"]: Input format ("xml" or "json", default "xml")
 
     Writes:
         - state["field_classifications"]: Dict of FieldClassification objects
         - state["payload_tier"]: Highest risk tier (minimum tier number)
+        - state["parsed_fields"]: Flat {field_name: value} dict from parser
 
     Args:
         state: Current NexBridgeState from LangGraph pipeline
 
     Returns:
-        Updated state with field_classifications and payload_tier
+        Updated state with field_classifications, payload_tier, and parsed_fields
     """
-    xml_payload = state["xml_payload"]
+    raw_payload = state["raw_payload"]
+    source_format = state.get("source_format", "xml")
 
-    # Extract field names from XML
-    field_names = extract_field_names_from_xml(xml_payload)
+    # Parse payload using the appropriate adapter
+    parser = get_parser(source_format)
+    field_names = parser.extract_field_names(raw_payload)
+    parsed_fields = parser.parse(raw_payload)
 
     # Initialize registry
     registry = ClassificationRegistry()
@@ -188,6 +197,7 @@ def classification_node(state: NexBridgeState) -> NexBridgeState:
         **state,
         "field_classifications": classifications,
         "payload_tier": payload_tier,
+        "parsed_fields": parsed_fields,
     }
 
 
@@ -255,6 +265,7 @@ def build_graph():
     graph.add_node("validator", validator_node)
     graph.add_node("translator", translator_node)
     graph.add_node("orchestrator", orchestrator_node)
+    graph.add_node("audit", audit_node)
 
     # Set entry point
     graph.set_entry_point("classification")
@@ -276,7 +287,8 @@ def build_graph():
     graph.add_edge("interpreter_run_2", "validator")
     graph.add_edge("validator", "translator")
     graph.add_edge("translator", "orchestrator")
-    graph.add_edge("orchestrator", END)
+    graph.add_edge("orchestrator", "audit")
+    graph.add_edge("audit", END)
 
     # Compile and return
     return graph.compile()
