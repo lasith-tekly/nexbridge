@@ -231,6 +231,7 @@ Update the status column as each step is completed.
 | 3.15 | Audit log shows real transformation entries | Manual | ⚪ |
 | 3.16 | All tests passing: pytest tests/ -v | @QAEngineer | ⚪ |
 | 3.17 | Merge developer → main | @DevOpsEngineer | ⚪ |
+| 3.19 | Fix format selector payload update in ConfigurePage | @FrontendDeveloper | ✅ |
 
 ---
 
