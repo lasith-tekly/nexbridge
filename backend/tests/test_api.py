@@ -293,23 +293,104 @@ class TestTransformEndpoint:
 # TestAnalyseStubEndpoint
 # =============================================================================
 
-class TestAnalyseStubEndpoint:
-    """Tests for POST /registry/analyse (Phase 4 stub)."""
+class TestAnalyseEndpoint:
+    """Tests for POST /registry/analyse (real LLM implementation)."""
 
-    def test_analyse_returns_501(self):
-        """POST /registry/analyse must return HTTP 501 (Not Implemented)."""
-        response = client.post(
-            "/registry/analyse", json={"payload": "<test/>"}
-        )
-        assert response.status_code == 501
+    def test_analyse_valid_xml_returns_200(self):
+        """POST /registry/analyse with valid XML payload must return HTTP 200."""
+        from unittest.mock import patch, MagicMock
+        from backend.core.agents.registry_analyser import BatchAnalysisResult, FieldAnalysisResult
 
-    def test_analyse_detail_mentions_phase_4(self):
-        """The 501 error detail must mention 'Phase 4' to guide the caller."""
+        mock_result = BatchAnalysisResult(fields=[
+            FieldAnalysisResult(
+                field_name="employee_id",
+                suggested_tier=3,
+                suggested_label="Business Important",
+                reasoning="Employee identifiers are business-critical.",
+                confidence=0.9,
+            )
+        ])
+        mock_structured_llm = MagicMock(return_value=mock_result)
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+
+        with patch("backend.core.agents.registry_analyser.get_llm", return_value=mock_llm):
+            response = client.post(
+                "/registry/analyse",
+                json={
+                    "payload": "<record><employee_id>E-001</employee_id></record>",
+                    "source_format": "xml",
+                },
+            )
+        assert response.status_code == 200
+
+    def test_analyse_response_has_required_fields(self):
+        """Response must include fields, source_format, and field_count."""
+        from unittest.mock import patch, MagicMock
+        from backend.core.agents.registry_analyser import BatchAnalysisResult, FieldAnalysisResult
+
+        mock_result = BatchAnalysisResult(fields=[
+            FieldAnalysisResult(
+                field_name="department",
+                suggested_tier=3,
+                suggested_label="Business Important",
+                reasoning="Dept is business-level.",
+                confidence=0.85,
+            )
+        ])
+        mock_structured_llm = MagicMock(return_value=mock_result)
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+
+        with patch("backend.core.agents.registry_analyser.get_llm", return_value=mock_llm):
+            response = client.post(
+                "/registry/analyse",
+                json={
+                    "payload": "<record><department>Ops</department></record>",
+                    "source_format": "xml",
+                },
+            )
+        data = response.json()
+        assert "fields" in data
+        assert "source_format" in data
+        assert "field_count" in data
+
+    def test_analyse_field_count_matches_fields_len(self):
+        """field_count in response must equal len(fields)."""
+        from unittest.mock import patch, MagicMock
+        from backend.core.agents.registry_analyser import BatchAnalysisResult, FieldAnalysisResult
+
+        mock_result = BatchAnalysisResult(fields=[
+            FieldAnalysisResult(
+                field_name="department",
+                suggested_tier=3,
+                suggested_label="Business Important",
+                reasoning="Dept.",
+                confidence=0.85,
+            )
+        ])
+        mock_structured_llm = MagicMock(return_value=mock_result)
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+
+        with patch("backend.core.agents.registry_analyser.get_llm", return_value=mock_llm):
+            response = client.post(
+                "/registry/analyse",
+                json={
+                    "payload": "<record><department>Ops</department></record>",
+                    "source_format": "xml",
+                },
+            )
+        data = response.json()
+        assert data["field_count"] == len(data["fields"])
+
+    def test_analyse_malformed_xml_returns_400(self):
+        """Malformed XML payload must return HTTP 400."""
         response = client.post(
-            "/registry/analyse", json={"payload": "<test/>"}
+            "/registry/analyse",
+            json={"payload": "<<<not xml>>>", "source_format": "xml"},
         )
-        detail = response.json()["detail"]
-        assert "Phase 4" in detail
+        assert response.status_code == 400
 
 
 # =============================================================================

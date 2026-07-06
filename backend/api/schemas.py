@@ -224,7 +224,7 @@ class RegistriesResponse(BaseModel):
 # ── Phase 4 stub schemas ──────────────────────────────────────────────────────
 
 class AnalyseRequest(BaseModel):
-    """Request payload for the POST /registry/analyse stub endpoint."""
+    """Request payload for the POST /registry/analyse endpoint."""
 
     payload: str = Field(
         ...,
@@ -233,6 +233,10 @@ class AnalyseRequest(BaseModel):
     source_format: str = Field(
         default="xml",
         description="Input format: 'xml' or 'json'"
+    )
+    context: str = Field(
+        default="",
+        description="Optional domain hint to guide tier classification (e.g. 'aviation', 'healthcare', 'banking')"
     )
 
 
@@ -266,7 +270,7 @@ class AnalysedField(BaseModel):
 
 
 class AnalyseResponse(BaseModel):
-    """Response from the POST /registry/analyse stub endpoint."""
+    """Response from the POST /registry/analyse endpoint."""
 
     fields: list[AnalysedField] = Field(
         ...,

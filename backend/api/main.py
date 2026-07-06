@@ -19,8 +19,10 @@ load_dotenv()
 # Local — core pipeline
 from backend.core.state import NexBridgeState
 from backend.core.orchestrator import build_graph
-from backend.core.exceptions import ParseError, RegistryNotFoundError
+from backend.core.exceptions import ParseError, RegistryNotFoundError, NexBridgeError
 from backend.core.classification.registry import ClassificationRegistry, list_available_registries
+from backend.core.format_registry import get_parser
+from backend.core.agents.registry_analyser import analyse_fields
 
 # Local — API schemas
 from backend.api.schemas import (
@@ -33,6 +35,7 @@ from backend.api.schemas import (
     ClassifyRequest,
     ClassifyResponse,
     AnalyseRequest,
+    AnalysedField,
     AnalyseResponse,
     ExportRequest,
 )
@@ -221,11 +224,36 @@ async def list_registries() -> RegistriesResponse:
 
 @app.post("/registry/analyse", response_model=AnalyseResponse)
 async def analyse_registry(request: AnalyseRequest) -> AnalyseResponse:
-    """Stub — Registry analysis is available in Phase 4."""
-    raise HTTPException(
-        status_code=501,
-        detail="Registry analysis is available in Phase 4. Use registry.json directly for now.",
-    )
+    """
+    Analyse a payload's fields and return AI-suggested tier classifications.
+
+    Extracts field names from the payload, runs a single LLM batch call,
+    and returns suggested tiers with reasoning for each field.
+    """
+    try:
+        parser = get_parser(request.source_format)
+        field_names = parser.extract_field_names(request.payload)
+
+        results = analyse_fields(
+            field_names=field_names,
+            source_format=request.source_format,
+            context=request.context,
+        )
+
+        return AnalyseResponse(
+            fields=[AnalysedField(**r) for r in results],
+            source_format=request.source_format,
+            field_count=len(results),
+        )
+    except ParseError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NexBridgeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        print(f"[API] Unhandled analyse error: {e}")
+        raise HTTPException(status_code=500, detail="Internal analyse error")
 
 
 @app.post("/registry/export", response_model=None)
