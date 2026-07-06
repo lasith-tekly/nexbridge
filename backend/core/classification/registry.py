@@ -15,7 +15,7 @@ from typing import Optional
 
 from backend.core.models import FieldClassification, Tier
 from backend.core.constants import CONFIDENCE_THRESHOLDS
-from backend.core.exceptions import ClassificationError
+from backend.core.exceptions import ClassificationError, RegistryNotFoundError
 
 
 # Tier label mapping
@@ -36,26 +36,32 @@ class ClassificationRegistry:
     payload tier, and list fields by tier.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, _registry_path: Optional[Path] = None) -> None:
         """
-        Load registry.json from the same directory.
-        Cache in memory and log field count.
+        Load registry from the given path, REGISTRY_PATH env var, or bundled default.
+
+        Args:
+            _registry_path: Explicit path override (used by ClassificationRegistry.load()).
+                            When None, falls back to REGISTRY_PATH env var or bundled file.
 
         Raises:
-            FileNotFoundError: If registry.json does not exist
-            json.JSONDecodeError: If registry.json is malformed
+            FileNotFoundError: If the resolved registry file does not exist
+            json.JSONDecodeError: If the registry file is malformed
         """
-        # Check for REGISTRY_PATH environment variable
-        custom_registry = os.getenv("REGISTRY_PATH")
-
-        if custom_registry and Path(custom_registry).exists():
-            # Use custom registry from environment
-            registry_path = Path(custom_registry)
-            print(f"[REGISTRY] Using custom registry: {registry_path}")
+        if _registry_path is not None:
+            registry_path = _registry_path
+            print(f"[REGISTRY] Using registry: {registry_path}")
         else:
-            # Default: registry.json in the same directory as this file
-            registry_path = Path(__file__).parent / "registry.json"
-            print(f"[REGISTRY] Using default registry: {registry_path}")
+            # Check for REGISTRY_PATH environment variable
+            custom_registry = os.getenv("REGISTRY_PATH")
+
+            if custom_registry and Path(custom_registry).exists():
+                registry_path = Path(custom_registry)
+                print(f"[REGISTRY] Using custom registry: {registry_path}")
+            else:
+                # Default: registry.json in the same directory as this file
+                registry_path = Path(__file__).parent / "registry.json"
+                print(f"[REGISTRY] Using default registry: {registry_path}")
 
         if not registry_path.exists():
             raise FileNotFoundError(
@@ -76,6 +82,52 @@ class ClassificationRegistry:
         field_count = len(self._fields)
         print(f"[REGISTRY] Loaded {field_count} fields")
         print(f"[REGISTRY] Version: {self._version}, Domain: {self._domain}")
+
+    @classmethod
+    def load(cls, registry_id: Optional[str] = None) -> "ClassificationRegistry":
+        """
+        Load a registry by ID from REGISTRY_DIR.
+
+        Resolution order:
+        1. If REGISTRY_DIR is set:
+             load {REGISTRY_DIR}/{registry_id or 'default'}.json
+             If the file does not exist: raise RegistryNotFoundError
+        2. If REGISTRY_DIR is not set:
+             fall through to __init__ default logic
+             (respects REGISTRY_PATH env var, then bundled registry.json)
+
+        Args:
+            registry_id: Registry ID to load (e.g. "default", "hr", "aviation").
+                         None is treated as "default".
+
+        Returns:
+            Loaded ClassificationRegistry instance
+
+        Raises:
+            RegistryNotFoundError: If REGISTRY_DIR is set but the file is not found
+        """
+        effective_id = registry_id or "default"
+        registry_dir_env = os.getenv("REGISTRY_DIR")
+
+        if registry_dir_env:
+            registry_dir = Path(registry_dir_env)
+            registry_path = registry_dir / f"{effective_id}.json"
+
+            if not registry_path.exists():
+                available = list_available_registries()
+                print(
+                    f"[REGISTRY] Registry '{effective_id}' not found in {registry_dir}. "
+                    f"Available: {available}"
+                )
+                raise RegistryNotFoundError(
+                    registry_id=effective_id,
+                    available=available,
+                )
+
+            return cls(_registry_path=registry_path)
+
+        # REGISTRY_DIR not set — use existing env var / bundled file logic
+        return cls()
 
     def classify(self, field_name: str) -> FieldClassification:
         """
@@ -180,3 +232,32 @@ class ClassificationRegistry:
             for field_name, field_data in self._fields.items()
             if field_data["tier"] == tier
         ]
+
+
+def list_available_registries() -> list[str]:
+    """
+    Return list of registry IDs available in REGISTRY_DIR.
+
+    Strips the .json extension from each filename.
+    Returns ["default"] if REGISTRY_DIR is not set or the directory is empty.
+
+    Returns:
+        Sorted list of registry ID strings (e.g. ["aviation", "default", "hr"])
+    """
+    registry_dir_env = os.getenv("REGISTRY_DIR")
+
+    if not registry_dir_env:
+        return ["default"]
+
+    registry_dir = Path(registry_dir_env)
+
+    if not registry_dir.exists() or not registry_dir.is_dir():
+        return ["default"]
+
+    ids = [
+        p.stem
+        for p in sorted(registry_dir.iterdir())
+        if p.is_file() and p.suffix == ".json"
+    ]
+
+    return ids if ids else ["default"]

@@ -10,7 +10,7 @@ import time
 
 # Third-party
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
@@ -19,8 +19,8 @@ load_dotenv()
 # Local — core pipeline
 from backend.core.state import NexBridgeState
 from backend.core.orchestrator import build_graph
-from backend.core.exceptions import ParseError
-from backend.core.classification.registry import ClassificationRegistry
+from backend.core.exceptions import ParseError, RegistryNotFoundError
+from backend.core.classification.registry import ClassificationRegistry, list_available_registries
 
 # Local — API schemas
 from backend.api.schemas import (
@@ -29,6 +29,7 @@ from backend.api.schemas import (
     HealthResponse,
     RegistryResponse,
     RegistryFieldInfo,
+    RegistriesResponse,
     ClassifyRequest,
     ClassifyResponse,
     AnalyseRequest,
@@ -65,16 +66,22 @@ async def transform(request: TransformRequestSchema) -> TransformResponseSchema:
     Returns GO/HOLD decision with the translated payload.
     """
     try:
-        # a. Record start time in milliseconds
+        # a. Validate registry_id exists before entering the pipeline —
+        # RegistryNotFoundError raised inside graph.invoke() may be
+        # wrapped by LangGraph and miss the typed except clause below.
+        ClassificationRegistry.load(request.registry_id)
+
+        # b. Record start time in milliseconds
         start_ms = time.time_ns() // 1_000_000
 
-        # b. Build initial NexBridgeState
+        # c. Build initial NexBridgeState — registry_id passed into state
         state: NexBridgeState = {
             "raw_payload": request.payload,
             "source_format": request.source_format,
             "target_format": request.target_format,
             "target_schema": request.target_schema,
             "root_element": request.root_element,
+            "registry_id": request.registry_id,
             "field_classifications": {},
             "parsed_fields": {},
             "payload_tier": 0,
@@ -89,19 +96,19 @@ async def transform(request: TransformRequestSchema) -> TransformResponseSchema:
             "processing_start_ms": start_ms,
         }
 
-        # c. Run pipeline
+        # d. Run pipeline
         graph = build_graph()
         result = graph.invoke(state)
 
-        # d. Calculate processing time
+        # e. Calculate processing time
         processing_time_ms = (time.time_ns() // 1_000_000) - start_ms
 
-        # e. Get anomaly count from validation_result
+        # f. Get anomaly count from validation_result
         anomaly_count = (
             result.get("validation_result", {}).get("anomaly_count", 0)
         )
 
-        # f. Return response
+        # g. Return response
         return TransformResponseSchema(
             decision=result["decision"],
             decision_reason=result["decision_reason"],
@@ -112,6 +119,11 @@ async def transform(request: TransformRequestSchema) -> TransformResponseSchema:
             processing_time_ms=processing_time_ms,
         )
 
+    except RegistryNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Registry '{e.registry_id}' not found. Available: {', '.join(e.available)}"
+        )
     except ParseError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except ValidationError as e:
@@ -141,10 +153,12 @@ async def health() -> HealthResponse:
 
 
 @app.get("/registry", response_model=RegistryResponse)
-async def get_registry() -> RegistryResponse:
+async def get_registry(
+    registry_id: str = Query(default="default", description="Registry ID to load")
+) -> RegistryResponse:
     """Return full classification registry with tier and threshold per field."""
     try:
-        registry = ClassificationRegistry()
+        registry = ClassificationRegistry.load(registry_id)
         all_fields = registry.list_all_fields()
         fields = {
             field_name: RegistryFieldInfo(
@@ -160,6 +174,11 @@ async def get_registry() -> RegistryResponse:
             field_count=len(fields),
             fields=fields,
         )
+    except RegistryNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Registry '{e.registry_id}' not found. Available: {', '.join(e.available)}"
+        )
     except Exception as e:
         print(f"[API] Registry load error: {e}")
         raise HTTPException(status_code=500, detail="Registry unavailable")
@@ -169,7 +188,7 @@ async def get_registry() -> RegistryResponse:
 async def classify(request: ClassifyRequest) -> ClassifyResponse:
     """Classify a list of field names and return tier assignments."""
     try:
-        registry = ClassificationRegistry()
+        registry = ClassificationRegistry.load(request.registry_id)
         classifications = {}
         for field_name in request.field_names:
             fc = registry.classify(field_name)
@@ -183,9 +202,21 @@ async def classify(request: ClassifyRequest) -> ClassifyResponse:
             payload_tier=payload_tier,
             classifications=classifications,
         )
+    except RegistryNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Registry '{e.registry_id}' not found. Available: {', '.join(e.available)}"
+        )
     except Exception as e:
         print(f"[API] Classify error: {e}")
         raise HTTPException(status_code=500, detail="Classification failed")
+
+
+@app.get("/registries", response_model=RegistriesResponse)
+async def list_registries() -> RegistriesResponse:
+    """Return the list of available registry IDs."""
+    registries = list_available_registries()
+    return RegistriesResponse(registries=registries, count=len(registries))
 
 
 @app.post("/registry/analyse", response_model=AnalyseResponse)

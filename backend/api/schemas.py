@@ -37,6 +37,10 @@ class TransformRequestSchema(BaseModel):
         default="payload",
         description="Root element tag name for XML output"
     )
+    registry_id: str = Field(
+        default="default",
+        description="Registry ID to use for field classification"
+    )
 
     @field_validator("source_format")
     @classmethod
@@ -73,6 +77,10 @@ class ClassifyRequest(BaseModel):
     field_names: list[str] = Field(
         ...,
         description="List of field names to classify against the registry"
+    )
+    registry_id: str = Field(
+        default="default",
+        description="Registry ID to use for field classification"
     )
 
     @field_validator("field_names")
@@ -196,6 +204,20 @@ class ClassifyResponse(BaseModel):
     classifications: dict[str, RegistryFieldInfo] = Field(
         ...,
         description="Per-field classification results"
+    )
+
+
+class RegistriesResponse(BaseModel):
+    """Response from the GET /registries endpoint."""
+
+    registries: list[str] = Field(
+        ...,
+        description="List of available registry IDs"
+    )
+    count: int = Field(
+        ...,
+        ge=0,
+        description="Total number of available registries"
     )
 
 

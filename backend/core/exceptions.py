@@ -384,6 +384,54 @@ class LLMError(NexBridgeError):
         return f"[LLM ERROR] provider={self.provider} reason={self.reason}"
 
 
+# --- Registry Exceptions ---
+
+class RegistryNotFoundError(NexBridgeError):
+    """
+    Raised when a requested registry_id cannot be found in REGISTRY_DIR.
+
+    This occurs when:
+    - REGISTRY_DIR is set but {registry_id}.json does not exist in it
+    - The requested registry_id is misspelled or not yet created
+    """
+
+    def __init__(
+        self,
+        registry_id: str,
+        available: list[str],
+        message: Optional[str] = None,
+        context: Optional[dict] = None
+    ):
+        """
+        Initialize registry not found error.
+
+        Args:
+            registry_id: The registry ID that was requested
+            available: List of registry IDs that do exist
+            message: Optional custom error message
+            context: Optional additional context
+        """
+        self.registry_id = registry_id
+        self.available = available
+
+        if message is None:
+            available_str = ", ".join(available) if available else "(none)"
+            message = (
+                f"Registry '{registry_id}' not found. "
+                f"Available: {available_str}"
+            )
+
+        super().__init__(message, context)
+
+    def __str__(self) -> str:
+        """Return formatted error with registry_id and available list."""
+        available_str = ", ".join(self.available) if self.available else "(none)"
+        return (
+            f"[REGISTRY NOT FOUND] registry_id={self.registry_id} "
+            f"available={available_str}"
+        )
+
+
 # --- Parser Exceptions ---
 
 class ParseError(NexBridgeError):
