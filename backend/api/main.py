@@ -6,7 +6,11 @@ See docs/SOLUTION_AGENTS.md for full specification.
 """
 
 # Standard library
+import json
+import os
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 
 # Third-party
 from dotenv import load_dotenv
@@ -20,6 +24,7 @@ load_dotenv()
 from backend.core.state import NexBridgeState
 from backend.core.orchestrator import build_graph
 from backend.core.exceptions import ParseError, RegistryNotFoundError, NexBridgeError
+from backend.core.constants import CONFIDENCE_THRESHOLDS
 from backend.core.classification.registry import ClassificationRegistry, list_available_registries
 from backend.core.format_registry import get_parser
 from backend.core.agents.registry_analyser import analyse_fields
@@ -38,6 +43,7 @@ from backend.api.schemas import (
     AnalysedField,
     AnalyseResponse,
     ExportRequest,
+    ExportResponse,
 )
 
 
@@ -256,10 +262,75 @@ async def analyse_registry(request: AnalyseRequest) -> AnalyseResponse:
         raise HTTPException(status_code=500, detail="Internal analyse error")
 
 
-@app.post("/registry/export", response_model=None)
-async def export_registry(request: ExportRequest) -> None:
-    """Stub — Registry export is available in Phase 4."""
-    raise HTTPException(
-        status_code=501,
-        detail="Registry export is available in Phase 4. Use registry.json directly for now.",
+@app.post("/registry/export", response_model=ExportResponse)
+async def export_registry(request: ExportRequest) -> ExportResponse:
+    """
+    Build and optionally save a registry.json from confirmed field classifications.
+
+    Validates T1 safety rules, serialises to JSON, writes to REGISTRY_DIR if set,
+    and returns the full content for client-side download.
+    """
+    # a. Validate T1 safety rules before touching the filesystem
+    for field in request.fields:
+        if field.tier == 1:
+            if field.threshold != CONFIDENCE_THRESHOLDS[1]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"T1 field '{field.field_name}' must have threshold 1.0. "
+                        f"Received: {field.threshold}"
+                    ),
+                )
+            if not field.confirmed_individually:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"T1 field '{field.field_name}' requires individual confirmation.",
+                )
+
+    # b. Build registry dict
+    registry: dict = {
+        "version": "1.0",
+        "domain": request.integration_name,
+        "created_by": "registry-builder",
+        "created_at": datetime.now(timezone.utc).isoformat()[:10],
+        "field_count": len(request.fields),
+        "fields": {},
+    }
+
+    for field in request.fields:
+        entry: dict = {
+            "tier": field.tier,
+            "label": field.label,
+            "threshold": field.threshold,
+        }
+        if field.description:
+            entry["description"] = field.description
+        if field.confirmed_individually:
+            entry["confirmed_individually"] = True
+        registry["fields"][field.field_name] = entry
+
+    # c. Serialise
+    content = json.dumps(registry, indent=2)
+    filename = f"{request.integration_name}.json"
+
+    # d. Save to REGISTRY_DIR if configured
+    registry_dir = os.getenv("REGISTRY_DIR")
+    saved = False
+    if registry_dir:
+        path = Path(registry_dir) / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        saved = True
+        print(f"[REGISTRY_EXPORT] Saved {filename} to {registry_dir}")
+    else:
+        print(f"[REGISTRY_EXPORT] REGISTRY_DIR not set — returning content only")
+
+    # e. Return response
+    return ExportResponse(
+        filename=filename,
+        content=content,
+        field_count=len(request.fields),
+        t1_count=sum(1 for f in request.fields if f.tier == 1),
+        registry_id=request.integration_name,
+        saved_to_server=saved,
     )

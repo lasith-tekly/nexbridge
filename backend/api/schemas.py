@@ -5,6 +5,7 @@ Part of the NexBridge transformation pipeline.
 See docs/SOLUTION_AGENTS.md for full specification.
 """
 
+import re
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -314,16 +315,66 @@ class ExportField(BaseModel):
         default="",
         description="Optional field description"
     )
+    confirmed_individually: bool = Field(
+        default=False,
+        description="Whether this field was individually confirmed by the user"
+    )
 
 
 class ExportRequest(BaseModel):
-    """Request payload for the POST /registry/export stub endpoint."""
+    """Request payload for POST /registry/export."""
 
     fields: list[ExportField] = Field(
         ...,
         description="Fields to export to registry"
     )
+    integration_name: str = Field(
+        ...,
+        description="Integration name used as registry ID and filename (e.g. 'flight-ops'). Alphanumeric, hyphens, and underscores only."
+    )
     domain: str = Field(
         default="custom",
         description="Registry domain name"
+    )
+
+    @field_validator("integration_name")
+    @classmethod
+    def validate_integration_name(cls, v: str) -> str:
+        """Reject values containing path separators or non-safe characters."""
+        if not re.fullmatch(r"[a-zA-Z0-9_-]+", v):
+            raise ValueError(
+                "integration_name must contain only alphanumeric characters, "
+                "hyphens, or underscores"
+            )
+        return v
+
+
+class ExportResponse(BaseModel):
+    """Response from POST /registry/export."""
+
+    filename: str = Field(
+        ...,
+        description="Registry filename (e.g. 'flight-ops.json')"
+    )
+    content: str = Field(
+        ...,
+        description="Full registry JSON string"
+    )
+    field_count: int = Field(
+        ...,
+        ge=0,
+        description="Total number of exported fields"
+    )
+    t1_count: int = Field(
+        ...,
+        ge=0,
+        description="Number of T1 Safety Critical fields"
+    )
+    registry_id: str = Field(
+        ...,
+        description="Registry ID (matches integration_name)"
+    )
+    saved_to_server: bool = Field(
+        ...,
+        description="Whether the file was saved to REGISTRY_DIR"
     )

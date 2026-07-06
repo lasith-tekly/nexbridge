@@ -397,42 +397,85 @@ class TestAnalyseEndpoint:
 # TestExportStubEndpoint
 # =============================================================================
 
-class TestExportStubEndpoint:
-    """Tests for POST /registry/export (Phase 4 stub)."""
+class TestExportEndpoint:
+    """Tests for POST /registry/export (real implementation)."""
 
-    def test_export_returns_501(self):
-        """POST /registry/export must return HTTP 501 (Not Implemented)."""
+    def test_export_valid_t4_fields_returns_200(self):
+        """POST /registry/export with valid T4 fields must return HTTP 200."""
         response = client.post(
             "/registry/export",
             json={
                 "fields": [
                     {
-                        "field_name": "x",
-                        "tier": 1,
-                        "label": "Safety Critical",
-                        "threshold": 1.0,
+                        "field_name": "notes",
+                        "tier": 4,
+                        "label": "Informational",
+                        "threshold": 0.0,
                     }
                 ],
-                "domain": "test",
+                "integration_name": "test-integration",
             },
         )
-        assert response.status_code == 501
+        assert response.status_code == 200
 
-    def test_export_detail_mentions_phase_4(self):
-        """The 501 error detail must mention 'Phase 4' to guide the caller."""
+    def test_export_response_has_required_fields(self):
+        """Response must include filename, content, field_count, t1_count, registry_id, saved_to_server."""
         response = client.post(
             "/registry/export",
             json={
                 "fields": [
                     {
-                        "field_name": "x",
+                        "field_name": "notes",
+                        "tier": 4,
+                        "label": "Informational",
+                        "threshold": 0.0,
+                    }
+                ],
+                "integration_name": "test-integration",
+            },
+        )
+        data = response.json()
+        assert "filename" in data
+        assert "content" in data
+        assert "field_count" in data
+        assert "t1_count" in data
+        assert "registry_id" in data
+        assert "saved_to_server" in data
+
+    def test_export_t1_with_low_threshold_returns_400(self):
+        """T1 field with threshold != 1.0 must return HTTP 400."""
+        response = client.post(
+            "/registry/export",
+            json={
+                "fields": [
+                    {
+                        "field_name": "weight_limit",
+                        "tier": 1,
+                        "label": "Safety Critical",
+                        "threshold": 0.95,
+                        "confirmed_individually": True,
+                    }
+                ],
+                "integration_name": "test-integration",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_export_t1_without_confirmation_returns_400(self):
+        """T1 field without confirmed_individually=True must return HTTP 400."""
+        response = client.post(
+            "/registry/export",
+            json={
+                "fields": [
+                    {
+                        "field_name": "weight_limit",
                         "tier": 1,
                         "label": "Safety Critical",
                         "threshold": 1.0,
+                        "confirmed_individually": False,
                     }
                 ],
-                "domain": "test",
+                "integration_name": "test-integration",
             },
         )
-        detail = response.json()["detail"]
-        assert "Phase 4" in detail
+        assert response.status_code == 400
