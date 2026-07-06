@@ -155,17 +155,9 @@ const SmallConfidenceBar: React.FC<{ confidence: number; tier: 1 | 2 | 3 | 4 }> 
 function extractFieldsFromXml(content: string): string[] {
   try {
     const parser = new DOMParser()
-    const doc = parser.parseFromString(content, 'application/xml')
+    const doc = parser.parseFromString(content, 'text/xml')
     const root = doc.documentElement
-    const names = new Set<string>()
-    const walk = (node: Element) => {
-      for (const child of Array.from(node.children)) {
-        names.add(child.tagName)
-        walk(child)
-      }
-    }
-    walk(root)
-    return Array.from(names)
+    return Array.from(root.children).map((el) => el.tagName)
   } catch {
     return []
   }
