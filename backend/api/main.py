@@ -301,7 +301,7 @@ async def export_registry(request: ExportRequest) -> ExportResponse:
         entry: dict = {
             "tier": field.tier,
             "label": field.label,
-            "threshold": field.threshold,
+            "threshold": float(field.threshold),
         }
         if field.description:
             entry["description"] = field.description
