@@ -235,6 +235,7 @@ Update the status column as each step is completed.
 | 3.20 | Multi-registry support — ClassificationRegistry.load(), /registries endpoint | @BackendDeveloper | ✅ |
 | 4.02 | POST /registry/analyse — real LLM batch field analysis | @BackendDeveloper | ✅ |
 | 4.03 | POST /registry/export — save + download registry JSON | @BackendDeveloper | ✅ |
+| 4.04 | Registry Builder UI — 6-step field classification workflow | @FrontendDeveloper | ✅ |
 
 ---
 
