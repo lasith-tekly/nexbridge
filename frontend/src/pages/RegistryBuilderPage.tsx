@@ -337,9 +337,12 @@ export const RegistryBuilderPage: React.FC = () => {
     }
     setExtractedFields(Array.from(allA))
 
+    const detectFormat = (filename: string): Format =>
+      filename.endsWith('.json') ? 'json' : 'xml'
+
     const allB = new Set<string>()
-    for (const content of Object.values(systemBFileContents)) {
-      extractFields(content, sourceFormat).forEach((n) => allB.add(n))
+    for (const [filename, content] of Object.entries(systemBFileContents)) {
+      extractFields(content, detectFormat(filename)).forEach((n) => allB.add(n))
     }
     setSystemBFields(Array.from(allB))
 
