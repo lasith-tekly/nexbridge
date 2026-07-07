@@ -1,4 +1,9 @@
-import type { TransformResponse, ClassifyResponse } from '@/types/nexbridge.types';
+import type {
+  TransformResponse,
+  ClassifyResponse,
+  ProposeMappingsRequest,
+  ProposeMappingsResponse,
+} from '@/types/nexbridge.types';
 
 const BASE_URL = 'http://localhost:8000';
 
@@ -45,6 +50,21 @@ export const nexbridgeApi = {
   healthCheck: async () => {
     const res = await fetch(`${BASE_URL}/health`);
     if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
+    return res.json();
+  },
+
+  proposeMappings: async (
+    request: ProposeMappingsRequest
+  ): Promise<ProposeMappingsResponse> => {
+    const res = await fetch(`${BASE_URL}/registry/propose-mappings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail ?? `Propose mappings failed: ${res.status}`);
+    }
     return res.json();
   },
 };

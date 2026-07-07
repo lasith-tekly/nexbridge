@@ -1,10 +1,17 @@
 import React, { useState, useRef } from 'react'
+import { TIER_COLOURS } from '@/constants/tiers'
+import { nexbridgeApi } from '@/services/nexbridgeApi'
 import type {
   AnalysedField,
   ConfirmedT1,
   ReviewField,
   ExportResult,
+  ConfirmedMapping,
 } from '@/types/registryBuilder.types'
+import type {
+  ProposeMappingsResponse,
+  MappingProposal,
+} from '@/types/nexbridge.types'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -29,31 +36,10 @@ const TIER_THRESHOLD_BOUNDS: Record<1 | 2 | 3 | 4, { min: number; max: number }>
   4: { min: 0.0, max: 0.0 },
 }
 
-const TIER_TEXT: Record<1 | 2 | 3 | 4, string> = {
-  1: 'text-[#ef4444]',
-  2: 'text-[#f59e0b]',
-  3: 'text-[#3b82f6]',
-  4: 'text-[#64748b]',
-}
-
-const TIER_BORDER: Record<1 | 2 | 3 | 4, string> = {
-  1: 'border-[#ef4444]',
-  2: 'border-[#f59e0b]',
-  3: 'border-[#3b82f6]',
-  4: 'border-[#64748b]',
-}
-
-const TIER_BG: Record<1 | 2 | 3 | 4, string> = {
-  1: 'bg-[#ef4444]',
-  2: 'bg-[#f59e0b]',
-  3: 'bg-[#3b82f6]',
-  4: 'bg-[#64748b]',
-}
-
-const STEP_LABELS = ['Extract', 'Analyse', 'Confirm T1', 'Review', 'Export']
+const STEP_LABELS = ['Extract', 'Analyse', 'Confirm T1', 'Map', 'Review', 'Export']
 
 type Format = 'xml' | 'json'
-type Step = 1 | 2 | 3 | 4 | 5 | 6
+type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -63,7 +49,7 @@ const Stepper: React.FC<{ step: Step; integrationName: string; fieldCount: numbe
   fieldCount,
 }) => {
   if (step === 1) return null
-  const currentIndex = step - 2 // steps 2-6 map to indices 0-4
+  const currentIndex = step - 2
 
   return (
     <div className="flex items-center justify-between mb-8 px-2">
@@ -92,7 +78,7 @@ const Stepper: React.FC<{ step: Step; integrationName: string; fieldCount: numbe
             </div>
             {i < STEP_LABELS.length - 1 && (
               <div
-                className={`h-px w-8 flex-shrink-0 ${
+                className={`h-px w-6 flex-shrink-0 ${
                   i < currentIndex ? 'bg-[#06b6d4]' : 'bg-[#1e2d45]'
                 }`}
               />
@@ -101,7 +87,7 @@ const Stepper: React.FC<{ step: Step; integrationName: string; fieldCount: numbe
         ))}
       </div>
 
-      {step > 1 && step < 6 && integrationName && (
+      {step > 1 && step < 7 && integrationName && (
         <div className="flex items-center gap-1.5 text-sm text-[#06b6d4] bg-[#0f1724] border border-[#1e2d45] rounded-full px-3 py-1">
           <span className="w-2 h-2 rounded-full bg-[#06b6d4] flex-shrink-0" />
           <span className="font-medium">{integrationName}</span>
@@ -116,7 +102,7 @@ const Stepper: React.FC<{ step: Step; integrationName: string; fieldCount: numbe
 
 const TierPill: React.FC<{ tier: 1 | 2 | 3 | 4; small?: boolean }> = ({ tier, small }) => (
   <span
-    className={`inline-flex items-center rounded-full font-bold text-white ${TIER_BG[tier]} ${
+    className={`inline-flex items-center rounded-full font-bold text-white ${TIER_COLOURS[tier].bg} ${
       small ? 'text-xs px-2 py-0.5' : 'text-sm px-2.5 py-0.5'
     }`}
   >
@@ -129,25 +115,26 @@ const SmallConfidenceBar: React.FC<{ confidence: number; tier: 1 | 2 | 3 | 4 }> 
   tier,
 }) => {
   const pct = Math.min(confidence * 100, 100)
-  const color =
-    tier === 1
-      ? 'bg-[#ef4444]'
-      : tier === 2
-      ? 'bg-[#f59e0b]'
-      : tier === 3
-      ? 'bg-[#3b82f6]'
-      : 'bg-[#64748b]'
-
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 bg-[#1e2d45] rounded-full h-1.5">
-        <div className={`${color} h-full rounded-full`} style={{ width: `${pct}%` }} />
+        <div
+          className={`${TIER_COLOURS[tier].bg} h-full rounded-full`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
       <span className="text-xs font-mono text-[#64748b] w-8 text-right">
         {confidence.toFixed(2)}
       </span>
     </div>
   )
+}
+
+// Confidence colour: ≥0.9 green, 0.7–0.89 amber, <0.7 red
+function confidenceColour(c: number): string {
+  if (c >= 0.9) return 'text-green-400'
+  if (c >= 0.7) return 'text-[#f59e0b]'
+  return 'text-[#ef4444]'
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -184,10 +171,11 @@ function extractFieldsFromJson(content: string): string[] {
   }
 }
 
-function buildReviewField(
-  f: AnalysedField,
-  confirmedT1s: ConfirmedT1[]
-): ReviewField {
+function extractFields(content: string, fmt: Format): string[] {
+  return fmt === 'xml' ? extractFieldsFromXml(content) : extractFieldsFromJson(content)
+}
+
+function buildReviewField(f: AnalysedField, confirmedT1s: ConfirmedT1[]): ReviewField {
   const confirmed = confirmedT1s.find((c) => c.field_name === f.field_name)
   const tier = (confirmed ? confirmed.final_tier : f.suggested_tier) as 1 | 2 | 3 | 4
   return {
@@ -199,30 +187,96 @@ function buildReviewField(
   }
 }
 
+// ── FileUploadZone ─────────────────────────────────────────────────────────────
+
+interface FileUploadZoneProps {
+  label: string
+  files: File[]
+  inputRef: React.RefObject<HTMLInputElement>
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+}
+
+const FileUploadZone: React.FC<FileUploadZoneProps> = ({ label, files, inputRef, onChange }) => (
+  <div>
+    <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">{label}</label>
+    <div
+      onClick={() => inputRef.current?.click()}
+      className="w-full bg-[#0f1724] border-2 border-dashed border-[#1e2d45] rounded-lg px-4 py-6 text-center cursor-pointer hover:border-[#06b6d4] transition-colors"
+    >
+      <div className="text-2xl mb-1">📂</div>
+      <p className="text-[#64748b] text-sm">Click to upload .xml or .json files</p>
+      <p className="text-[#334155] text-xs mt-0.5">Multiple files supported</p>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept=".xml,.json"
+        onChange={onChange}
+        className="hidden"
+      />
+    </div>
+    {files.length > 0 && (
+      <ul className="mt-2 space-y-1">
+        {files.map((f) => (
+          <li key={f.name} className="text-xs text-[#06b6d4] flex items-center gap-1.5">
+            <span>✓</span> {f.name}
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+)
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export const RegistryBuilderPage: React.FC = () => {
   const [step, setStep] = useState<Step>(1)
   const [integrationName, setIntegrationName] = useState('')
+  const [sourceSystemName, setSourceSystemName] = useState('')
+  const [targetSystemName, setTargetSystemName] = useState('')
   const [sourceFormat, setSourceFormat] = useState<Format>('xml')
+
+  // System A
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [fileContents, setFileContents] = useState<Record<string, string>>({})
   const [extractedFields, setExtractedFields] = useState<string[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // System B
+  const [systemBFiles, setSystemBFiles] = useState<File[]>([])
+  const [systemBFileContents, setSystemBFileContents] = useState<Record<string, string>>({})
+  const [systemBFields, setSystemBFields] = useState<string[]>([])
+  const systemBFileInputRef = useRef<HTMLInputElement>(null)
+
+  // Analysis
   const [analysisResults, setAnalysisResults] = useState<AnalysedField[]>([])
+  const [proposeMappingsResult, setProposeMappingsResult] = useState<ProposeMappingsResponse | null>(null)
+
+  // T1 field confirmation
   const [confirmedT1Fields, setConfirmedT1Fields] = useState<ConfirmedT1[]>([])
+  const [t1Index, setT1Index] = useState(0)
+  const [reclassifyField, setReclassifyField] = useState<string | null>(null)
+
+  // Mapping review (step 5)
+  const [acceptedMappingKeys, setAcceptedMappingKeys] = useState<Set<string>>(new Set())
+  const [overriddenTargets, setOverriddenTargets] = useState<Record<string, string>>({})
+  const [confirmedMappings, setConfirmedMappings] = useState<ConfirmedMapping[]>([])
+
+  // Full review (step 6)
   const [allFields, setAllFields] = useState<ReviewField[]>([])
+  const [editingReviewField, setEditingReviewField] = useState<string | null>(null)
+  const [editingT1Field, setEditingT1Field] = useState<string | null>(null)
+
+  // Export (step 7)
   const [exportResult, setExportResult] = useState<ExportResult | null>(null)
+
+  // Shared UI state
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [manualField, setManualField] = useState('')
   const [analyseFilter, setAnalyseFilter] = useState<'All' | 'T1' | 'T2' | 'T3' | 'T4'>('All')
   const [acceptedNonT1, setAcceptedNonT1] = useState<Set<string>>(new Set())
   const [overrideField, setOverrideField] = useState<string | null>(null)
-  const [t1Index, setT1Index] = useState(0)
-  const [reclassifyField, setReclassifyField] = useState<string | null>(null)
-  const [editingReviewField, setEditingReviewField] = useState<string | null>(null)
-  const [editingT1Field, setEditingT1Field] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Derived
   const t1Fields = analysisResults.filter((f) => f.suggested_tier === 1)
@@ -231,12 +285,17 @@ export const RegistryBuilderPage: React.FC = () => {
     nonT1Fields.length > 0 &&
     nonT1Fields.every((f) => acceptedNonT1.has(f.field_name))
   const currentT1 = t1Fields[t1Index] ?? null
+  const effectiveSrcName = sourceSystemName.trim() || 'System A'
+  const effectiveTgtName = targetSystemName.trim() || 'System B'
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  // ── File reading helpers ────────────────────────────────────────────────────
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    setUploadedFiles(files)
+  function readFiles(
+    files: File[],
+    setFiles: React.Dispatch<React.SetStateAction<File[]>>,
+    setContents: (c: Record<string, string>) => void
+  ) {
+    setFiles(files)
     setError('')
     const contents: Record<string, string> = {}
     let completed = 0
@@ -245,49 +304,51 @@ export const RegistryBuilderPage: React.FC = () => {
       reader.onload = (ev) => {
         contents[file.name] = ev.target?.result as string
         completed++
-        if (completed === files.length) {
-          setFileContents({ ...contents })
-        }
+        if (completed === files.length) setContents({ ...contents })
       }
       reader.onerror = () => {
         completed++
         setError(`Failed to read file: ${file.name}`)
-        setUploadedFiles((prev) => prev.filter((f) => f.name !== file.name))
-        if (completed === files.length) {
-          setFileContents({ ...contents })
-        }
+        setFiles((prev) => prev.filter((f) => f.name !== file.name))
+        if (completed === files.length) setContents({ ...contents })
       }
       reader.readAsText(file)
     })
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    readFiles(Array.from(e.target.files ?? []), setUploadedFiles, setFileContents)
+  }
+
+  const handleSystemBFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    readFiles(Array.from(e.target.files ?? []), setSystemBFiles, setSystemBFileContents)
+  }
+
+  // ── Step handlers ────────────────────────────────────────────────────────────
+
   const handleExtract = () => {
-    if (!integrationName.trim()) {
-      setError('Integration name is required.')
-      return
-    }
-    if (uploadedFiles.length === 0) {
-      setError('Please upload at least one file.')
-      return
-    }
+    if (!integrationName.trim()) { setError('Integration name is required.'); return }
+    if (uploadedFiles.length === 0) { setError('Please upload at least one System A file.'); return }
     setError('')
-    const allNames = new Set<string>()
+
+    const allA = new Set<string>()
     for (const content of Object.values(fileContents)) {
-      const names =
-        sourceFormat === 'xml'
-          ? extractFieldsFromXml(content)
-          : extractFieldsFromJson(content)
-      names.forEach((n) => allNames.add(n))
+      extractFields(content, sourceFormat).forEach((n) => allA.add(n))
     }
-    setExtractedFields(Array.from(allNames))
+    setExtractedFields(Array.from(allA))
+
+    const allB = new Set<string>()
+    for (const content of Object.values(systemBFileContents)) {
+      extractFields(content, sourceFormat).forEach((n) => allB.add(n))
+    }
+    setSystemBFields(Array.from(allB))
+
     setStep(2)
   }
 
   const handleAddManualField = () => {
     const name = manualField.trim()
-    if (name && !extractedFields.includes(name)) {
-      setExtractedFields((prev) => [...prev, name])
-    }
+    if (name && !extractedFields.includes(name)) setExtractedFields((prev) => [...prev, name])
     setManualField('')
   }
 
@@ -296,7 +357,9 @@ export const RegistryBuilderPage: React.FC = () => {
     setError('')
     try {
       const firstContent = Object.values(fileContents)[0] ?? ''
-      const res = await fetch('http://localhost:8000/registry/analyse', {
+
+      // Call analyse and (if System B present) propose-mappings in parallel
+      const analysePromise = fetch('http://localhost:8000/registry/analyse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -305,12 +368,31 @@ export const RegistryBuilderPage: React.FC = () => {
           context: integrationName,
         }),
       })
-      if (!res.ok) {
-        const err = await res.json()
+
+      const proposeMappingsPromise =
+        systemBFields.length > 0
+          ? nexbridgeApi.proposeMappings({
+              domain: integrationName,
+              source_system: effectiveSrcName,
+              target_system: effectiveTgtName,
+              system_a_fields: extractedFields.map((name) => ({
+                name,
+                tier: 4,       // will be updated after analyse returns, but LLM doesn't need exact tiers
+                threshold: 0.0,
+              })),
+              system_b_fields: systemBFields,
+            }).catch(() => null)  // non-fatal: degrade gracefully if propose-mappings fails
+          : Promise.resolve(null)
+
+      const [analyseRes, proposeMappings] = await Promise.all([analysePromise, proposeMappingsPromise])
+
+      if (!analyseRes.ok) {
+        const err = await analyseRes.json()
         throw new Error(err.detail ?? 'Analysis failed')
       }
-      const data = await res.json()
-      setAnalysisResults(data.fields)
+      const analyseData = await analyseRes.json()
+      setAnalysisResults(analyseData.fields)
+      setProposeMappingsResult(proposeMappings)
       setAcceptedNonT1(new Set())
       setStep(3)
     } catch (e) {
@@ -320,14 +402,11 @@ export const RegistryBuilderPage: React.FC = () => {
     }
   }
 
-  const handleAcceptField = (fieldName: string) => {
+  const handleAcceptField = (fieldName: string) =>
     setAcceptedNonT1((prev) => new Set([...prev, fieldName]))
-  }
 
-  const handleAcceptAllNonT1 = () => {
-    const names = nonT1Fields.map((f) => f.field_name)
-    setAcceptedNonT1(new Set(names))
-  }
+  const handleAcceptAllNonT1 = () =>
+    setAcceptedNonT1(new Set(nonT1Fields.map((f) => f.field_name)))
 
   const handleOverrideTier = (fieldName: string, newTier: 1 | 2 | 3 | 4) => {
     setAnalysisResults((prev) =>
@@ -338,15 +417,12 @@ export const RegistryBuilderPage: React.FC = () => {
       )
     )
     setOverrideField(null)
-    if (newTier !== 1) {
-      setAcceptedNonT1((prev) => new Set([...prev, fieldName]))
-    }
+    if (newTier !== 1) setAcceptedNonT1((prev) => new Set([...prev, fieldName]))
   }
 
   const handleProceedToT1 = () => {
     if (t1Fields.length === 0) {
-      const fields = analysisResults.map((f) => buildReviewField(f, []))
-      setAllFields(fields)
+      setAllFields(analysisResults.map((f) => buildReviewField(f, [])))
       setStep(5)
     } else {
       setT1Index(0)
@@ -366,8 +442,7 @@ export const RegistryBuilderPage: React.FC = () => {
     if (t1Index + 1 < t1Fields.length) {
       setT1Index(t1Index + 1)
     } else {
-      const fields = analysisResults.map((f) => buildReviewField(f, updated))
-      setAllFields(fields)
+      setAllFields(analysisResults.map((f) => buildReviewField(f, updated)))
       setStep(5)
     }
   }
@@ -385,19 +460,54 @@ export const RegistryBuilderPage: React.FC = () => {
     if (t1Index + 1 < t1Fields.length) {
       setT1Index(t1Index + 1)
     } else {
-      const fields = analysisResults.map((f) => buildReviewField(f, confirmedT1Fields))
-      setAllFields(fields)
+      setAllFields(analysisResults.map((f) => buildReviewField(f, confirmedT1Fields)))
       setStep(5)
     }
   }
 
-  const handleUpdateReviewField = (
-    fieldName: string,
-    newTier: 1 | 2 | 3 | 4,
-    newThreshold: number
-  ) => {
+  // Step 5 — Mapping Review handlers
+
+  const handleConfirmMapping = (sourceField: string) =>
+    setAcceptedMappingKeys((prev) => new Set([...prev, sourceField]))
+
+  const handleAcceptAllNonT1Mappings = () => {
+    const proposals = proposeMappingsResult?.proposed_mappings ?? []
+    const keys = proposals
+      .filter((m) => m.effective_tier > 1)
+      .map((m) => m.source_field)
+    setAcceptedMappingKeys((prev) => new Set([...prev, ...keys]))
+  }
+
+  const handleOverrideTarget = (sourceField: string, newTarget: string) =>
+    setOverriddenTargets((prev) => ({ ...prev, [sourceField]: newTarget }))
+
+  const handleProceedFromMappingReview = () => {
+    const proposals = proposeMappingsResult?.proposed_mappings ?? []
+    const bTiers = proposeMappingsResult?.system_b_tiers ?? {}
+    const confirmed: ConfirmedMapping[] = proposals.map((m) => {
+      const resolvedTarget = overriddenTargets[m.source_field] ?? m.target_field
+      const resolvedTargetTier =
+        bTiers[resolvedTarget]?.tier ?? m.target_tier
+      const effectiveTier = Math.min(m.source_tier, resolvedTargetTier)
+      return {
+        sourceField: m.source_field,
+        targetField: resolvedTarget,
+        confidence: m.confidence,
+        sourceTier: m.source_tier,
+        targetTier: resolvedTargetTier,
+        effectiveTier,
+        llmGenerated: !overriddenTargets[m.source_field],
+        confirmedAt: new Date().toISOString(),
+      }
+    })
+    setConfirmedMappings(confirmed)
+    setStep(6)
+  }
+
+  // Step 6 — Full Review handlers
+
+  const handleUpdateReviewField = (fieldName: string, newTier: 1 | 2 | 3 | 4, newThreshold: number) => {
     if (newTier === 1) {
-      // Changing to T1 requires going back through confirmation
       setAnalysisResults((prev) =>
         prev.map((f) =>
           f.field_name === fieldName
@@ -416,13 +526,7 @@ export const RegistryBuilderPage: React.FC = () => {
     setAllFields((prev) =>
       prev.map((f) =>
         f.field_name === fieldName
-          ? {
-              ...f,
-              tier: newTier,
-              label: TIER_LABELS[newTier],
-              threshold: newThreshold,
-              confirmed_individually: false,
-            }
+          ? { ...f, tier: newTier, label: TIER_LABELS[newTier], threshold: newThreshold, confirmed_individually: false }
           : f
       )
     )
@@ -449,7 +553,7 @@ export const RegistryBuilderPage: React.FC = () => {
       }
       const data: ExportResult = await res.json()
       setExportResult(data)
-      setStep(6)
+      setStep(7)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Export failed')
     } finally {
@@ -471,21 +575,30 @@ export const RegistryBuilderPage: React.FC = () => {
   const handleReset = () => {
     setStep(1)
     setIntegrationName('')
+    setSourceSystemName('')
+    setTargetSystemName('')
     setSourceFormat('xml')
     setUploadedFiles([])
     setFileContents({})
     setExtractedFields([])
+    setSystemBFiles([])
+    setSystemBFileContents({})
+    setSystemBFields([])
     setAnalysisResults([])
+    setProposeMappingsResult(null)
     setConfirmedT1Fields([])
+    setT1Index(0)
+    setAcceptedMappingKeys(new Set())
+    setOverriddenTargets({})
+    setConfirmedMappings([])
     setAllFields([])
     setExportResult(null)
     setError('')
     setAcceptedNonT1(new Set())
     setAnalyseFilter('All')
-    setT1Index(0)
   }
 
-  // ── Render helpers ───────────────────────────────────────────────────────────
+  // ── Screen renderers ─────────────────────────────────────────────────────────
 
   const renderStep1 = () => (
     <div className="max-w-xl mx-auto">
@@ -499,9 +612,7 @@ export const RegistryBuilderPage: React.FC = () => {
 
       <div className="space-y-5">
         <div>
-          <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">
-            Integration Name
-          </label>
+          <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">Integration Name</label>
           <input
             type="text"
             value={integrationName}
@@ -512,9 +623,7 @@ export const RegistryBuilderPage: React.FC = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">
-            Source Format
-          </label>
+          <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">Source Format</label>
           <div className="flex gap-2">
             {(['xml', 'json'] as Format[]).map((fmt) => (
               <button
@@ -532,37 +641,51 @@ export const RegistryBuilderPage: React.FC = () => {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">
-            Upload Sample Files
-          </label>
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full bg-[#0f1724] border-2 border-dashed border-[#1e2d45] rounded-lg px-4 py-8 text-center cursor-pointer hover:border-[#06b6d4] transition-colors"
-          >
-            <div className="text-3xl mb-2">📂</div>
-            <p className="text-[#64748b] text-sm">
-              Click to upload .xml or .json files
-            </p>
-            <p className="text-[#334155] text-xs mt-1">Multiple files supported</p>
+        {/* System A upload */}
+        <div className="bg-[#0f1724] border border-[#1e2d45] rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold text-[#06b6d4] uppercase tracking-wider">System A — Sender</span>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">System Name</label>
             <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".xml,.json"
-              onChange={handleFileChange}
-              className="hidden"
+              type="text"
+              value={sourceSystemName}
+              onChange={(e) => setSourceSystemName(e.target.value)}
+              placeholder="e.g. FMS"
+              className="w-full bg-[#080c18] border border-[#1e2d45] rounded-lg px-3 py-2 text-sm text-white placeholder-[#334155] focus:outline-none focus:border-[#06b6d4] transition-colors"
             />
           </div>
-          {uploadedFiles.length > 0 && (
-            <ul className="mt-2 space-y-1">
-              {uploadedFiles.map((f) => (
-                <li key={f.name} className="text-xs text-[#06b6d4] flex items-center gap-1.5">
-                  <span>✓</span> {f.name}
-                </li>
-              ))}
-            </ul>
-          )}
+          <FileUploadZone
+            label="Sample Payload Files"
+            files={uploadedFiles}
+            inputRef={fileInputRef}
+            onChange={handleFileChange}
+          />
+        </div>
+
+        {/* System B upload */}
+        <div className="bg-[#0f1724] border border-[#1e2d45] rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider">System B — Receiver</span>
+            <span className="text-xs text-[#64748b]">(optional)</span>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#94a3b8] mb-1.5">System Name</label>
+            <input
+              type="text"
+              value={targetSystemName}
+              onChange={(e) => setTargetSystemName(e.target.value)}
+              placeholder="e.g. GSP"
+              className="w-full bg-[#080c18] border border-[#1e2d45] rounded-lg px-3 py-2 text-sm text-white placeholder-[#334155] focus:outline-none focus:border-[#06b6d4] transition-colors"
+            />
+          </div>
+          <FileUploadZone
+            label="Sample Payload Files"
+            files={systemBFiles}
+            inputRef={systemBFileInputRef}
+            onChange={handleSystemBFileChange}
+          />
         </div>
 
         {error && <p className="text-[#ef4444] text-sm">{error}</p>}
@@ -578,61 +701,88 @@ export const RegistryBuilderPage: React.FC = () => {
     </div>
   )
 
-  const renderStep2 = () => (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white">Extracted Fields</h2>
-        <p className="text-[#64748b] text-sm mt-1">
-          {extractedFields.length} fields found in {uploadedFiles.length} file
-          {uploadedFiles.length !== 1 ? 's' : ''} · {sourceFormat.toUpperCase()}
-        </p>
-      </div>
+  const renderStep2 = () => {
+    const hasB = systemBFields.length > 0
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-white">Extracted Fields</h2>
+          <p className="text-[#64748b] text-sm mt-1">
+            {extractedFields.length} System A fields
+            {hasB ? ` · ${systemBFields.length} System B fields` : ''}
+            {' '}· {sourceFormat.toUpperCase()}
+          </p>
+        </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-6">
-        {extractedFields.map((name) => (
-          <div
-            key={name}
-            className="bg-[#0f1724] border border-[#1e2d45] rounded-lg px-3 py-2 font-mono text-sm text-white"
-          >
-            {name}
+        <div className={`grid ${hasB ? 'grid-cols-2' : 'grid-cols-1'} gap-6 mb-6`}>
+          {/* System A */}
+          <div>
+            {hasB && (
+              <p className="text-xs font-semibold text-[#06b6d4] uppercase tracking-wider mb-2">
+                {effectiveSrcName}
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              {extractedFields.map((name) => (
+                <div
+                  key={name}
+                  className="bg-[#0f1724] border border-[#1e2d45] rounded-lg px-3 py-2 font-mono text-sm text-white"
+                >
+                  {name}
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
 
-      <div className="flex gap-2 mb-6">
-        <input
-          type="text"
-          value={manualField}
-          onChange={(e) => setManualField(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleAddManualField()}
-          placeholder="Add field manually..."
-          className="flex-1 bg-[#0f1724] border border-[#1e2d45] rounded-lg px-3 py-2 text-sm text-white placeholder-[#334155] focus:outline-none focus:border-[#06b6d4]"
-        />
+          {/* System B */}
+          {hasB && (
+            <div>
+              <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-2">
+                {effectiveTgtName}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {systemBFields.map((name) => (
+                  <div
+                    key={name}
+                    className="bg-[#0f1724] border border-[#1e2d45] rounded-lg px-3 py-2 font-mono text-sm text-[#94a3b8]"
+                  >
+                    {name}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 mb-6">
+          <input
+            type="text"
+            value={manualField}
+            onChange={(e) => setManualField(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddManualField()}
+            placeholder="Add System A field manually..."
+            className="flex-1 bg-[#0f1724] border border-[#1e2d45] rounded-lg px-3 py-2 text-sm text-white placeholder-[#334155] focus:outline-none focus:border-[#06b6d4]"
+          />
+          <button
+            onClick={handleAddManualField}
+            className="bg-[#0f1724] border border-[#1e2d45] hover:border-[#06b6d4] text-[#06b6d4] px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            + Add
+          </button>
+        </div>
+
+        {error && <p className="text-[#ef4444] text-sm mb-4">{error}</p>}
+
         <button
-          onClick={handleAddManualField}
-          className="bg-[#0f1724] border border-[#1e2d45] hover:border-[#06b6d4] text-[#06b6d4] px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          onClick={handleAnalyse}
+          disabled={isLoading || extractedFields.length === 0}
+          className="w-full bg-[#06b6d4] hover:bg-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
         >
-          + Add
+          {isLoading ? <><span className="animate-spin">⟳</span> Analysing with AI…</> : 'Analyse with AI →'}
         </button>
       </div>
-
-      {error && <p className="text-[#ef4444] text-sm mb-4">{error}</p>}
-
-      <button
-        onClick={handleAnalyse}
-        disabled={isLoading || extractedFields.length === 0}
-        className="w-full bg-[#06b6d4] hover:bg-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-      >
-        {isLoading ? (
-          <>
-            <span className="animate-spin">⟳</span> Analysing with AI…
-          </>
-        ) : (
-          'Analyse with AI →'
-        )}
-      </button>
-    </div>
-  )
+    )
+  }
 
   const renderStep3 = () => {
     const filterTabs = ['All', 'T1', 'T2', 'T3', 'T4'] as const
@@ -650,14 +800,15 @@ export const RegistryBuilderPage: React.FC = () => {
       T4: analysisResults.filter((f) => f.suggested_tier === 4).length,
     }
 
+    const bTiers = proposeMappingsResult?.system_b_tiers ?? {}
+    const hasB = Object.keys(bTiers).length > 0
+
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold text-white">AI Analysis Results</h2>
-            <p className="text-[#64748b] text-sm mt-1">
-              Review and accept tier classifications
-            </p>
+            <p className="text-[#64748b] text-sm mt-1">Review and accept tier classifications</p>
           </div>
           <button
             onClick={handleAcceptAllNonT1}
@@ -683,101 +834,128 @@ export const RegistryBuilderPage: React.FC = () => {
           ))}
         </div>
 
-        <div className="bg-[#0f1724] border border-[#1e2d45] rounded-xl overflow-hidden mb-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#1e2d45]">
-                <th className="text-left px-4 py-3 text-[#64748b] font-medium">Field</th>
-                <th className="text-left px-4 py-3 text-[#64748b] font-medium">Tier</th>
-                <th className="text-left px-4 py-3 text-[#64748b] font-medium">Confidence</th>
-                <th className="text-left px-4 py-3 text-[#64748b] font-medium">Reasoning</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((f) => {
-                const isT1 = f.suggested_tier === 1
-                const tier = f.suggested_tier as 1 | 2 | 3 | 4
-                const accepted = acceptedNonT1.has(f.field_name)
-
-                return (
-                  <tr
-                    key={f.field_name}
-                    className={`border-b border-[#1e2d45] last:border-0 ${
-                      isT1 ? 'border-l-2 border-l-[#ef4444]' : ''
-                    }`}
-                  >
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-white">{f.field_name}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <TierPill tier={tier} small />
-                        {isT1 && <span className="text-[#ef4444] text-xs">⚠️</span>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 w-32">
-                      <SmallConfidenceBar confidence={f.confidence} tier={tier} />
-                    </td>
-                    <td className="px-4 py-3 text-[#64748b] text-xs max-w-xs">
-                      {f.reasoning}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {isT1 ? (
-                        <span className="text-xs text-[#ef4444] font-medium">
-                          Confirm individually →
-                        </span>
-                      ) : (
-                        <div className="flex items-center gap-2 justify-end">
-                          {overrideField === f.field_name ? (
-                            <select
-                              autoFocus
-                              onChange={(e) =>
-                                handleOverrideTier(
-                                  f.field_name,
-                                  parseInt(e.target.value) as 1 | 2 | 3 | 4
-                                )
-                              }
-                              onBlur={() => setOverrideField(null)}
-                              className="bg-[#080c18] border border-[#1e2d45] text-white text-xs rounded px-2 py-1"
-                              defaultValue={tier}
-                            >
-                              {([1, 2, 3, 4] as const).map((t) => (
-                                <option key={t} value={t}>
-                                  T{t} — {TIER_LABELS[t]}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => setOverrideField(f.field_name)}
-                                className="text-[#64748b] hover:text-white text-sm"
-                                title="Override tier"
-                              >
-                                ✏️
-                              </button>
-                              <button
-                                onClick={() => handleAcceptField(f.field_name)}
-                                disabled={accepted}
-                                className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
-                                  accepted
-                                    ? 'bg-green-900 text-green-400 cursor-default'
-                                    : 'bg-[#0f1724] border border-[#1e2d45] hover:border-[#06b6d4] text-[#06b6d4]'
-                                }`}
-                              >
-                                {accepted ? '✓ Accepted' : 'Accept'}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </td>
+        <div className={`grid ${hasB ? 'grid-cols-2' : 'grid-cols-1'} gap-6 mb-4`}>
+          {/* System A tier results */}
+          <div>
+            {hasB && (
+              <p className="text-xs font-semibold text-[#06b6d4] uppercase tracking-wider mb-2">
+                {effectiveSrcName} — Tier Analysis
+              </p>
+            )}
+            <div className="bg-[#0f1724] border border-[#1e2d45] rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#1e2d45]">
+                    <th className="text-left px-3 py-3 text-[#64748b] font-medium">Field</th>
+                    <th className="text-left px-3 py-3 text-[#64748b] font-medium">Tier</th>
+                    <th className="text-left px-3 py-3 text-[#64748b] font-medium">Conf.</th>
+                    <th className="px-3 py-3" />
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {filtered.map((f) => {
+                    const isT1 = f.suggested_tier === 1
+                    const tier = f.suggested_tier as 1 | 2 | 3 | 4
+                    const accepted = acceptedNonT1.has(f.field_name)
+                    return (
+                      <tr
+                        key={f.field_name}
+                        className={`border-b border-[#1e2d45] last:border-0 ${isT1 ? 'border-l-2 border-l-[#ef4444]' : ''}`}
+                      >
+                        <td className="px-3 py-2.5">
+                          <span className="font-mono text-white text-xs">{f.field_name}</span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-1">
+                            <TierPill tier={tier} small />
+                            {isT1 && <span className="text-[#ef4444] text-xs">⚠️</span>}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 w-24">
+                          <SmallConfidenceBar confidence={f.confidence} tier={tier} />
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          {isT1 ? (
+                            <span className="text-xs text-[#ef4444] font-medium">→ confirm</span>
+                          ) : (
+                            <div className="flex items-center gap-1.5 justify-end">
+                              {overrideField === f.field_name ? (
+                                <select
+                                  autoFocus
+                                  onChange={(e) => handleOverrideTier(f.field_name, parseInt(e.target.value) as 1 | 2 | 3 | 4)}
+                                  onBlur={() => setOverrideField(null)}
+                                  className="bg-[#080c18] border border-[#1e2d45] text-white text-xs rounded px-2 py-1"
+                                  defaultValue={tier}
+                                >
+                                  {([1, 2, 3, 4] as const).map((t) => (
+                                    <option key={t} value={t}>T{t}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <>
+                                  <button onClick={() => setOverrideField(f.field_name)} className="text-[#64748b] hover:text-white text-xs">✏️</button>
+                                  <button
+                                    onClick={() => handleAcceptField(f.field_name)}
+                                    disabled={accepted}
+                                    className={`text-xs px-2 py-0.5 rounded font-medium transition-colors ${
+                                      accepted ? 'text-green-400 cursor-default' : 'text-[#06b6d4] hover:text-white'
+                                    }`}
+                                  >
+                                    {accepted ? '✓' : 'Accept'}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* System B tier results */}
+          {hasB && (
+            <div>
+              <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-2">
+                {effectiveTgtName} — Tier Analysis
+              </p>
+              <div className="bg-[#0f1724] border border-[#1e2d45] rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#1e2d45]">
+                      <th className="text-left px-3 py-3 text-[#64748b] font-medium">Field</th>
+                      <th className="text-left px-3 py-3 text-[#64748b] font-medium">Tier</th>
+                      <th className="text-left px-3 py-3 text-[#64748b] font-medium">Reasoning</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(bTiers).map(([name, result]) => {
+                      const tier = result.tier as 1 | 2 | 3 | 4
+                      const isT1 = tier === 1
+                      return (
+                        <tr
+                          key={name}
+                          className={`border-b border-[#1e2d45] last:border-0 ${isT1 ? 'border-l-2 border-l-[#ef4444]' : ''}`}
+                        >
+                          <td className="px-3 py-2.5 font-mono text-[#94a3b8] text-xs">{name}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-1">
+                              <TierPill tier={tier} small />
+                              {isT1 && <span className="text-[#ef4444] text-xs">⚠️</span>}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5 text-[#64748b] text-xs max-w-xs">{result.reasoning}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {t1Fields.length > 0 && (
@@ -801,6 +979,7 @@ export const RegistryBuilderPage: React.FC = () => {
     )
   }
 
+  // Step 4 — T1 confirmation (unchanged logic)
   const renderStep4 = () => {
     if (!currentT1) return null
     const firstFile = uploadedFiles[0]?.name ?? ''
@@ -816,9 +995,7 @@ export const RegistryBuilderPage: React.FC = () => {
         const obj = JSON.parse(firstContent)
         sampleValue = String(obj[currentT1.field_name] ?? '')
       }
-    } catch {
-      sampleValue = ''
-    }
+    } catch { sampleValue = '' }
 
     return (
       <div className="max-w-xl mx-auto">
@@ -826,9 +1003,7 @@ export const RegistryBuilderPage: React.FC = () => {
           <span className="text-lg">⚠️</span>
           <div>
             <p className="font-semibold">T1 Safety Critical — Individual Confirmation Required</p>
-            <p className="opacity-80 text-xs mt-0.5">
-              Field {t1Index + 1} of {t1Fields.length}
-            </p>
+            <p className="opacity-80 text-xs mt-0.5">Field {t1Index + 1} of {t1Fields.length}</p>
           </div>
         </div>
 
@@ -836,13 +1011,7 @@ export const RegistryBuilderPage: React.FC = () => {
           {t1Fields.map((_, i) => (
             <div
               key={i}
-              className={`h-1.5 flex-1 rounded-full ${
-                i < t1Index
-                  ? 'bg-[#06b6d4]'
-                  : i === t1Index
-                  ? 'bg-[#ef4444]'
-                  : 'bg-[#1e2d45]'
-              }`}
+              className={`h-1.5 flex-1 rounded-full ${i < t1Index ? 'bg-[#06b6d4]' : i === t1Index ? 'bg-[#ef4444]' : 'bg-[#1e2d45]'}`}
             />
           ))}
         </div>
@@ -852,11 +1021,7 @@ export const RegistryBuilderPage: React.FC = () => {
             <TierPill tier={1} />
             <span className="text-[#ef4444] font-medium text-sm">Safety Critical</span>
           </div>
-
-          <p className="font-mono text-2xl text-white font-bold mb-4">
-            {currentT1.field_name}
-          </p>
-
+          <p className="font-mono text-2xl text-white font-bold mb-4">{currentT1.field_name}</p>
           <div className="grid grid-cols-2 gap-4 text-sm mb-4">
             {firstFile && (
               <div>
@@ -871,12 +1036,10 @@ export const RegistryBuilderPage: React.FC = () => {
               </div>
             )}
           </div>
-
           <div className="border-t border-[#1e2d45] pt-4 mb-4">
             <p className="text-[#64748b] text-xs mb-1">AI Reasoning</p>
             <p className="text-[#94a3b8] text-sm leading-relaxed">{currentT1.reasoning}</p>
           </div>
-
           <div>
             <p className="text-[#64748b] text-xs mb-1.5">Confidence</p>
             <SmallConfidenceBar confidence={currentT1.confidence} tier={1} />
@@ -887,25 +1050,16 @@ export const RegistryBuilderPage: React.FC = () => {
           <div className="mb-4">
             <label className="block text-sm text-[#94a3b8] mb-1.5">Reclassify as:</label>
             <select
-              onChange={(e) =>
-                handleReclassifyT1(currentT1.field_name, parseInt(e.target.value) as 2 | 3 | 4)
-              }
+              onChange={(e) => handleReclassifyT1(currentT1.field_name, parseInt(e.target.value) as 2 | 3 | 4)}
               className="w-full bg-[#0f1724] border border-[#1e2d45] text-white rounded-lg px-3 py-2 focus:outline-none focus:border-[#06b6d4]"
               defaultValue=""
             >
               <option value="" disabled>Select tier…</option>
               {([2, 3, 4] as const).map((t) => (
-                <option key={t} value={t}>
-                  T{t} — {TIER_LABELS[t]}
-                </option>
+                <option key={t} value={t}>T{t} — {TIER_LABELS[t]}</option>
               ))}
             </select>
-            <button
-              onClick={() => setReclassifyField(null)}
-              className="mt-2 text-xs text-[#64748b] hover:text-white"
-            >
-              Cancel
-            </button>
+            <button onClick={() => setReclassifyField(null)} className="mt-2 text-xs text-[#64748b] hover:text-white">Cancel</button>
           </div>
         ) : (
           <button
@@ -926,7 +1080,176 @@ export const RegistryBuilderPage: React.FC = () => {
     )
   }
 
+  // Step 5 — Mapping Review (new)
   const renderStep5 = () => {
+    const proposals = proposeMappingsResult?.proposed_mappings ?? []
+    const bTiers = proposeMappingsResult?.system_b_tiers ?? {}
+
+    const allMappingsAccepted =
+      proposals.length > 0 && proposals.every((m) => acceptedMappingKeys.has(m.source_field))
+
+    const t1MappingsPending = proposals.filter(
+      (m) => m.effective_tier === 1 && !acceptedMappingKeys.has(m.source_field)
+    )
+
+    if (!proposeMappingsResult || proposals.length === 0) {
+      return (
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-2xl font-bold text-white mb-3">Review Proposed Mappings</h2>
+          <div className="bg-[#0f1724] border border-[#1e2d45] rounded-xl p-8 mb-6">
+            <p className="text-[#64748b]">System B not uploaded — mappings will be generated at runtime.</p>
+          </div>
+          <button
+            onClick={() => { setConfirmedMappings([]); setStep(6) }}
+            className="bg-[#06b6d4] hover:bg-cyan-400 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
+          >
+            Skip →
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Review Proposed Mappings</h2>
+            <p className="text-[#64748b] text-sm mt-1">
+              AI has proposed the following field mappings between{' '}
+              <span className="text-[#06b6d4]">{effectiveSrcName}</span> and{' '}
+              <span className="text-[#94a3b8]">{effectiveTgtName}</span>.
+              Confirm or override each one.
+            </p>
+          </div>
+          <button
+            onClick={handleAcceptAllNonT1Mappings}
+            className="bg-[#0f1724] border border-[#1e2d45] hover:border-[#06b6d4] text-[#06b6d4] px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-shrink-0"
+          >
+            Accept All Non-T1 Mappings
+          </button>
+        </div>
+
+        <div className="bg-[#0f1724] border border-[#1e2d45] rounded-xl overflow-hidden mb-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#1e2d45]">
+                <th className="text-left px-4 py-3 text-[#64748b] font-medium">Source Field</th>
+                <th className="text-left px-4 py-3 text-[#64748b] font-medium">→ Target Field</th>
+                <th className="text-left px-4 py-3 text-[#64748b] font-medium">Confidence</th>
+                <th className="text-left px-4 py-3 text-[#64748b] font-medium">Effective Tier</th>
+                <th className="text-left px-4 py-3 text-[#64748b] font-medium">Mismatch</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {proposals.map((m: MappingProposal) => {
+                const effectiveTier = m.effective_tier as 1 | 2 | 3 | 4
+                const isT1Effective = effectiveTier === 1
+                const isConfirmed = acceptedMappingKeys.has(m.source_field)
+                const resolvedTarget = overriddenTargets[m.source_field] ?? m.target_field
+                const sourceTier = m.source_tier as 1 | 2 | 3 | 4
+                const resolvedTargetTier = (bTiers[resolvedTarget]?.tier ?? m.target_tier) as 1 | 2 | 3 | 4
+
+                return (
+                  <tr
+                    key={m.source_field}
+                    className={`border-b border-[#1e2d45] last:border-0 ${isT1Effective ? 'border-l-2 border-l-[#ef4444]' : ''}`}
+                  >
+                    {/* Source field */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-white text-xs">{m.source_field}</span>
+                        <TierPill tier={sourceTier} small />
+                      </div>
+                    </td>
+
+                    {/* Target field — editable */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={resolvedTarget}
+                          onChange={(e) => handleOverrideTarget(m.source_field, e.target.value)}
+                          className="bg-[#080c18] border border-[#1e2d45] text-white text-xs rounded px-2 py-1 font-mono focus:outline-none focus:border-[#06b6d4]"
+                        >
+                          {systemBFields.map((f) => (
+                            <option key={f} value={f}>{f}</option>
+                          ))}
+                        </select>
+                        <TierPill tier={resolvedTargetTier} small />
+                      </div>
+                    </td>
+
+                    {/* Confidence */}
+                    <td className="px-4 py-3">
+                      <span className={`font-mono text-xs font-semibold ${confidenceColour(m.confidence)}`}>
+                        {Math.round(m.confidence * 100)}%
+                      </span>
+                    </td>
+
+                    {/* Effective tier */}
+                    <td className="px-4 py-3">
+                      <TierPill tier={effectiveTier} small />
+                    </td>
+
+                    {/* Mismatch badge */}
+                    <td className="px-4 py-3">
+                      {m.tier_mismatch ? (
+                        <span className="inline-flex items-center gap-1 text-xs bg-amber-900 text-amber-300 px-2 py-0.5 rounded-full font-medium">
+                          ⚠ Tier Mismatch
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[#64748b]">—</span>
+                      )}
+                    </td>
+
+                    {/* Action */}
+                    <td className="px-4 py-3 text-right">
+                      {isConfirmed ? (
+                        <span className="text-xs text-green-400 font-medium">✓ Confirmed</span>
+                      ) : isT1Effective ? (
+                        <button
+                          onClick={() => handleConfirmMapping(m.source_field)}
+                          className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-[#1a0a0a] border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444] hover:text-white transition-colors"
+                        >
+                          Confirm individually
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleConfirmMapping(m.source_field)}
+                          className="text-xs px-3 py-1 rounded-lg font-medium bg-[#0f1724] border border-[#1e2d45] hover:border-[#06b6d4] text-[#06b6d4] transition-colors"
+                        >
+                          Accept
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {t1MappingsPending.length > 0 && (
+          <div className="bg-[#1a0a0a] border border-[#ef4444] border-opacity-40 rounded-lg px-4 py-3 mb-4 flex items-center gap-2 text-sm text-[#ef4444]">
+            ⚠️ {t1MappingsPending.length} T1-effective mapping{t1MappingsPending.length !== 1 ? 's' : ''} require individual confirmation before continuing
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <button
+            onClick={handleProceedFromMappingReview}
+            disabled={!allMappingsAccepted}
+            className="bg-[#06b6d4] hover:bg-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-8 py-3 rounded-lg transition-colors"
+          >
+            Continue →
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Step 6 — Full Review (was step 5, + confirmed mappings section)
+  const renderStep6 = () => {
     const t1Reviewed = allFields.filter((f) => f.tier === 1)
     const nonT1Reviewed = allFields.filter((f) => f.tier !== 1)
     const tierCounts = { 1: 0, 2: 0, 3: 0, 4: 0 }
@@ -934,16 +1257,58 @@ export const RegistryBuilderPage: React.FC = () => {
 
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-white">Full Review</h2>
-            <p className="text-[#64748b] text-sm mt-1">
-              Final check before export
-            </p>
-          </div>
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-white">Full Review</h2>
+          <p className="text-[#64748b] text-sm mt-1">Final check before export</p>
         </div>
 
-        {/* Section A — T1 fields */}
+        {/* Confirmed Mappings section */}
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-[#06b6d4] uppercase tracking-wider mb-3">
+            Confirmed Mappings
+          </h3>
+          {confirmedMappings.length > 0 ? (
+            <div className="bg-[#0f1724] border border-[#1e2d45] rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#1e2d45]">
+                    <th className="text-left px-4 py-3 text-[#64748b] font-medium">Source → Target</th>
+                    <th className="text-left px-4 py-3 text-[#64748b] font-medium">Effective Tier</th>
+                    <th className="text-left px-4 py-3 text-[#64748b] font-medium">Confidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {confirmedMappings.map((m) => (
+                    <tr key={m.sourceField} className="border-b border-[#1e2d45] last:border-0">
+                      <td className="px-4 py-2.5 font-mono text-sm text-white">
+                        <span className="text-[#06b6d4]">{m.sourceField}</span>
+                        <span className="text-[#64748b] mx-2">→</span>
+                        <span className="text-[#94a3b8]">{m.targetField}</span>
+                        {!m.llmGenerated && (
+                          <span className="ml-2 text-xs text-[#f59e0b]">(overridden)</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <TierPill tier={m.effectiveTier as 1 | 2 | 3 | 4} small />
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={`font-mono text-xs font-semibold ${confidenceColour(m.confidence)}`}>
+                          {Math.round(m.confidence * 100)}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="bg-[#0f1724] border border-[#1e2d45] rounded-xl px-4 py-4 text-[#64748b] text-sm">
+              No pre-approved mappings — runtime LLM mapping enabled.
+            </div>
+          )}
+        </div>
+
+        {/* T1 fields */}
         {t1Reviewed.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-[#ef4444] uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -992,12 +1357,7 @@ export const RegistryBuilderPage: React.FC = () => {
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => setEditingT1Field(f.field_name)}
-                            className="text-[#64748b] hover:text-white text-sm"
-                          >
-                            ✏️
-                          </button>
+                          <button onClick={() => setEditingT1Field(f.field_name)} className="text-[#64748b] hover:text-white text-sm">✏️</button>
                         </td>
                       </tr>
                     )
@@ -1008,12 +1368,10 @@ export const RegistryBuilderPage: React.FC = () => {
           </div>
         )}
 
-        {/* Section B — T2-T4 fields */}
+        {/* T2–T4 fields */}
         {nonT1Reviewed.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-[#94a3b8] uppercase tracking-wider mb-3">
-              T2–T4 Fields
-            </h3>
+            <h3 className="text-sm font-semibold text-[#94a3b8] uppercase tracking-wider mb-3">T2–T4 Fields</h3>
             <div className="bg-[#0f1724] border border-[#1e2d45] rounded-xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
@@ -1029,7 +1387,6 @@ export const RegistryBuilderPage: React.FC = () => {
                     const tier = f.tier as 1 | 2 | 3 | 4
                     const isEditing = editingReviewField === f.field_name
                     const bounds = TIER_THRESHOLD_BOUNDS[tier]
-
                     return (
                       <tr key={f.field_name} className="border-b border-[#1e2d45] last:border-0">
                         <td className="px-4 py-3 font-mono text-white">{f.field_name}</td>
@@ -1039,11 +1396,7 @@ export const RegistryBuilderPage: React.FC = () => {
                               defaultValue={tier}
                               onChange={(e) => {
                                 const newTier = parseInt(e.target.value) as 1 | 2 | 3 | 4
-                                handleUpdateReviewField(
-                                  f.field_name,
-                                  newTier,
-                                  TIER_DEFAULTS[newTier]
-                                )
+                                handleUpdateReviewField(f.field_name, newTier, TIER_DEFAULTS[newTier])
                               }}
                               className="bg-[#080c18] border border-[#1e2d45] text-white text-xs rounded px-2 py-1"
                             >
@@ -1064,25 +1417,20 @@ export const RegistryBuilderPage: React.FC = () => {
                               max={bounds.max}
                               step={0.01}
                               onBlur={(e) => {
-                                const val = Math.min(
-                                  bounds.max,
-                                  Math.max(bounds.min, parseFloat(e.target.value) || bounds.min)
-                                )
+                                const val = Math.min(bounds.max, Math.max(bounds.min, parseFloat(e.target.value) || bounds.min))
                                 handleUpdateReviewField(f.field_name, tier, val)
                               }}
                               className="w-20 bg-[#080c18] border border-[#1e2d45] text-white text-xs rounded px-2 py-1 font-mono"
                             />
                           ) : (
-                            <span className={`font-mono text-xs ${TIER_TEXT[tier]}`}>
+                            <span className={`font-mono text-xs ${TIER_COLOURS[tier].text}`}>
                               {tier === 4 ? '0.00 (locked)' : f.threshold.toFixed(2)}
                             </span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button
-                            onClick={() =>
-                              setEditingReviewField(isEditing ? null : f.field_name)
-                            }
+                            onClick={() => setEditingReviewField(isEditing ? null : f.field_name)}
                             className="text-[#64748b] hover:text-white text-sm"
                           >
                             {isEditing ? '✓' : '✏️'}
@@ -1100,11 +1448,8 @@ export const RegistryBuilderPage: React.FC = () => {
         {/* Stats */}
         <div className="grid grid-cols-5 gap-3 mb-6">
           {([1, 2, 3, 4] as const).map((t) => (
-            <div
-              key={t}
-              className={`bg-[#0f1724] border ${TIER_BORDER[t]} border-opacity-40 rounded-lg p-3 text-center`}
-            >
-              <p className={`text-2xl font-bold ${TIER_TEXT[t]}`}>{tierCounts[t]}</p>
+            <div key={t} className={`bg-[#0f1724] border ${TIER_COLOURS[t].border} border-opacity-40 rounded-lg p-3 text-center`}>
+              <p className={`text-2xl font-bold ${TIER_COLOURS[t].text}`}>{tierCounts[t]}</p>
               <p className="text-xs text-[#64748b] mt-1">T{t}</p>
             </div>
           ))}
@@ -1122,27 +1467,18 @@ export const RegistryBuilderPage: React.FC = () => {
             disabled={isLoading}
             className="bg-[#06b6d4] hover:bg-cyan-400 disabled:opacity-40 text-white font-semibold px-8 py-3 rounded-lg transition-colors flex items-center gap-2"
           >
-            {isLoading ? (
-              <><span className="animate-spin">⟳</span> Exporting…</>
-            ) : (
-              'Proceed to Export →'
-            )}
+            {isLoading ? <><span className="animate-spin">⟳</span> Exporting…</> : 'Proceed to Export →'}
           </button>
         </div>
       </div>
     )
   }
 
-  const renderStep6 = () => {
+  // Step 7 — Export (was step 6, unchanged visually)
+  const renderStep7 = () => {
     if (!exportResult) return null
-
-    // Pretty-print JSON for safe plain-text rendering
     let prettyContent = exportResult.content
-    try {
-      prettyContent = JSON.stringify(JSON.parse(exportResult.content), null, 2)
-    } catch {
-      // fallback to raw content if parsing fails
-    }
+    try { prettyContent = JSON.stringify(JSON.parse(exportResult.content), null, 2) } catch { /* use raw */ }
 
     return (
       <div className="max-w-5xl mx-auto">
@@ -1158,7 +1494,6 @@ export const RegistryBuilderPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* JSON preview */}
           <div className="lg:col-span-3 bg-[#0f1724] border border-[#1e2d45] rounded-xl overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#1e2d45] bg-[#080c18]">
               <span className="text-xs text-[#64748b] font-mono">{exportResult.filename}</span>
@@ -1168,7 +1503,6 @@ export const RegistryBuilderPage: React.FC = () => {
             </pre>
           </div>
 
-          {/* Right panel */}
           <div className="lg:col-span-2 space-y-4">
             <button
               onClick={handleDownload}
@@ -1182,34 +1516,15 @@ export const RegistryBuilderPage: React.FC = () => {
               <ol className="space-y-3 text-sm text-[#94a3b8]">
                 <li className="flex gap-2.5">
                   <span className="text-[#06b6d4] font-bold flex-shrink-0">1.</span>
-                  <span>
-                    Copy{' '}
-                    <code className="text-[#06b6d4] font-mono text-xs">
-                      {exportResult.filename}
-                    </code>{' '}
-                    to your{' '}
-                    <code className="text-[#94a3b8] font-mono text-xs">registries/</code> folder
-                  </span>
+                  <span>Copy <code className="text-[#06b6d4] font-mono text-xs">{exportResult.filename}</code> to your <code className="text-[#94a3b8] font-mono text-xs">registries/</code> folder</span>
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-[#06b6d4] font-bold flex-shrink-0">2.</span>
-                  <span>
-                    Set{' '}
-                    <code className="text-[#94a3b8] font-mono text-xs">
-                      REGISTRY_DIR=./registries
-                    </code>{' '}
-                    in your <code className="text-[#94a3b8] font-mono text-xs">.env</code>
-                  </span>
+                  <span>Set <code className="text-[#94a3b8] font-mono text-xs">REGISTRY_DIR=./registries</code> in your <code className="text-[#94a3b8] font-mono text-xs">.env</code></span>
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-[#06b6d4] font-bold flex-shrink-0">3.</span>
-                  <span>
-                    Use{' '}
-                    <code className="text-[#94a3b8] font-mono text-xs">
-                      registry_id=&quot;{exportResult.registry_id}&quot;
-                    </code>{' '}
-                    in API calls
-                  </span>
+                  <span>Use <code className="text-[#94a3b8] font-mono text-xs">registry_id=&quot;{exportResult.registry_id}&quot;</code> in API calls</span>
                 </li>
               </ol>
             </div>
@@ -1234,15 +1549,14 @@ export const RegistryBuilderPage: React.FC = () => {
       case 4: return renderStep4()
       case 5: return renderStep5()
       case 6: return renderStep6()
+      case 7: return renderStep7()
     }
   }
 
   const fieldCount =
-    step >= 3
-      ? analysisResults.length
-      : step === 2
-      ? extractedFields.length
-      : 0
+    step >= 3 ? analysisResults.length
+    : step === 2 ? extractedFields.length
+    : 0
 
   return (
     <div className="min-h-screen bg-[#080c18] text-white px-4 py-8">

@@ -20,6 +20,17 @@ export interface ReviewField {
   confirmed_individually: boolean
 }
 
+export interface ConfirmedMapping {
+  sourceField: string
+  targetField: string
+  confidence: number
+  sourceTier: number
+  targetTier: number
+  effectiveTier: number
+  llmGenerated: boolean
+  confirmedAt: string
+}
+
 export interface ExportResult {
   filename: string
   content: string
