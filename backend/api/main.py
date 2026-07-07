@@ -360,11 +360,17 @@ async def export_registry(request: ExportRequest) -> ExportResponse:
             entry["confirmed_individually"] = True
         registry["fields"][field.field_name] = entry
 
-    # c. Serialise
+    # c. Append optional mapping data if provided
+    if request.target_schema:
+        registry["target_schema"] = request.target_schema
+    if request.approved_mappings:
+        registry["approved_mappings"] = request.approved_mappings
+
+    # d. Serialise
     content = json.dumps(registry, indent=2)
     filename = f"{request.integration_name}.json"
 
-    # d. Save to REGISTRY_DIR if configured
+    # e. Save to REGISTRY_DIR if configured
     registry_dir = os.getenv("REGISTRY_DIR")
     saved = False
     if registry_dir:
@@ -376,7 +382,7 @@ async def export_registry(request: ExportRequest) -> ExportResponse:
     else:
         print(f"[REGISTRY_EXPORT] REGISTRY_DIR not set — returning content only")
 
-    # e. Return response
+    # f. Return response
     return ExportResponse(
         filename=filename,
         content=content,

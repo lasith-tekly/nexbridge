@@ -358,8 +358,8 @@ export const RegistryBuilderPage: React.FC = () => {
     try {
       const firstContent = Object.values(fileContents)[0] ?? ''
 
-      // Call analyse and (if System B present) propose-mappings in parallel
-      const analysePromise = fetch('http://localhost:8000/registry/analyse', {
+      // Step 1: await analyse so we have real tier data before proposing mappings
+      const analyseRes = await fetch('http://localhost:8000/registry/analyse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -368,32 +368,30 @@ export const RegistryBuilderPage: React.FC = () => {
           context: integrationName,
         }),
       })
-
-      const proposeMappingsPromise =
-        systemBFields.length > 0
-          ? nexbridgeApi.proposeMappings({
-              domain: integrationName,
-              source_system: effectiveSrcName,
-              target_system: effectiveTgtName,
-              system_a_fields: extractedFields.map((name) => ({
-                name,
-                tier: 4,       // will be updated after analyse returns, but LLM doesn't need exact tiers
-                threshold: 0.0,
-              })),
-              system_b_fields: systemBFields,
-            }).catch(() => null)  // non-fatal: degrade gracefully if propose-mappings fails
-          : Promise.resolve(null)
-
-      const [analyseRes, proposeMappings] = await Promise.all([analysePromise, proposeMappingsPromise])
-
       if (!analyseRes.ok) {
         const err = await analyseRes.json()
         throw new Error(err.detail ?? 'Analysis failed')
       }
       const analyseData = await analyseRes.json()
       setAnalysisResults(analyseData.fields)
-      setProposeMappingsResult(proposeMappings)
       setAcceptedNonT1(new Set())
+
+      // Step 2: if System B present, call propose-mappings with real tiers
+      if (systemBFields.length > 0) {
+        const result = await nexbridgeApi.proposeMappings({
+          domain: integrationName,
+          source_system: effectiveSrcName,
+          target_system: effectiveTgtName,
+          system_a_fields: analyseData.fields.map((f: AnalysedField) => ({
+            name: f.field_name,
+            tier: f.suggested_tier,
+            threshold: TIER_DEFAULTS[f.suggested_tier as 1 | 2 | 3 | 4],
+          })),
+          system_b_fields: systemBFields,
+        }).catch(() => null) // non-fatal: degrade gracefully if propose-mappings fails
+        setProposeMappingsResult(result)
+      }
+
       setStep(3)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Analysis failed')
@@ -538,6 +536,32 @@ export const RegistryBuilderPage: React.FC = () => {
     setIsLoading(true)
     setError('')
     try {
+      // Build target_schema from System B tier classifications
+      const targetSchema: Record<string, { type: string; tier: number }> = {}
+      if (proposeMappingsResult) {
+        for (const [fieldName, tierResult] of Object.entries(proposeMappingsResult.system_b_tiers)) {
+          targetSchema[fieldName] = { type: 'string', tier: tierResult.tier }
+        }
+      }
+
+      // Build approved_mappings from confirmed mapping state
+      const approvedMappings: Record<string, {
+        target_field: string
+        confidence: number
+        approved_by: string
+        approved_at: string
+        llm_generated: boolean
+      }> = {}
+      for (const mapping of confirmedMappings) {
+        approvedMappings[mapping.sourceField] = {
+          target_field: mapping.targetField,
+          confidence: mapping.confidence,
+          approved_by: 'registry_builder',
+          approved_at: mapping.confirmedAt,
+          llm_generated: mapping.llmGenerated,
+        }
+      }
+
       const res = await fetch('http://localhost:8000/registry/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -545,6 +569,8 @@ export const RegistryBuilderPage: React.FC = () => {
           fields: allFields,
           integration_name: integrationName,
           domain: integrationName,
+          target_schema: Object.keys(targetSchema).length > 0 ? targetSchema : undefined,
+          approved_mappings: Object.keys(approvedMappings).length > 0 ? approvedMappings : undefined,
         }),
       })
       if (!res.ok) {

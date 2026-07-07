@@ -429,6 +429,15 @@ class ExportRequest(BaseModel):
         description="Registry domain name"
     )
 
+    target_schema: dict[str, dict] | None = Field(
+        default=None,
+        description="System B field schema hints keyed by field name"
+    )
+    approved_mappings: dict[str, dict] | None = Field(
+        default=None,
+        description="Approved A→B field mappings keyed by System A field name"
+    )
+
     @field_validator("integration_name")
     @classmethod
     def validate_integration_name(cls, v: str) -> str:

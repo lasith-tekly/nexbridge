@@ -775,6 +775,109 @@ class TestExportEndpointContentStructure:
 # TestExportStubRegressionCheck
 # =============================================================================
 
+# =============================================================================
+# TestExportOptionalMappingData — target_schema and approved_mappings
+# =============================================================================
+
+# AirNova scenario data used across these tests
+_AIRNOVA_TARGET_SCHEMA = {
+    "max_permitted_load": {"type": "string", "tier": 1},
+    "flight_code": {"type": "string", "tier": 3},
+}
+
+_AIRNOVA_APPROVED_MAPPINGS = {
+    "weight_limit": {
+        "target_field": "max_permitted_load",
+        "confidence": 0.98,
+        "approved_by": "registry_builder",
+        "approved_at": "2026-07-07T10:00:00",
+        "llm_generated": True,
+    },
+}
+
+
+class TestExportOptionalMappingData:
+    """
+    Tests that target_schema and approved_mappings are written into
+    exported registry JSON when provided, and omitted when absent.
+    """
+
+    def test_export_writes_target_schema_when_provided(self):
+        """target_schema in request must appear as a key in the exported JSON content."""
+        body = _export_body(target_schema=_AIRNOVA_TARGET_SCHEMA)
+        response = client.post("/registry/export", json=body)
+        assert response.status_code == 200
+        content = json.loads(response.json()["content"])
+        assert "target_schema" in content
+        assert content["target_schema"] == _AIRNOVA_TARGET_SCHEMA
+
+    def test_export_writes_approved_mappings_when_provided(self):
+        """approved_mappings in request must appear as a key in the exported JSON content."""
+        body = _export_body(approved_mappings=_AIRNOVA_APPROVED_MAPPINGS)
+        response = client.post("/registry/export", json=body)
+        assert response.status_code == 200
+        content = json.loads(response.json()["content"])
+        assert "approved_mappings" in content
+        assert content["approved_mappings"] == _AIRNOVA_APPROVED_MAPPINGS
+
+    def test_export_without_target_schema_or_mappings_is_unchanged(self):
+        """Backward compatibility: neither key appears in JSON when not provided."""
+        response = client.post("/registry/export", json=_export_body())
+        assert response.status_code == 200
+        content = json.loads(response.json()["content"])
+        assert "target_schema" not in content
+        assert "approved_mappings" not in content
+
+    def test_export_writes_both_when_both_provided(self):
+        """Both target_schema and approved_mappings written when both present."""
+        body = _export_body(
+            target_schema=_AIRNOVA_TARGET_SCHEMA,
+            approved_mappings=_AIRNOVA_APPROVED_MAPPINGS,
+        )
+        response = client.post("/registry/export", json=body)
+        assert response.status_code == 200
+        content = json.loads(response.json()["content"])
+        assert "target_schema" in content
+        assert "approved_mappings" in content
+
+    def test_export_target_schema_null_omits_key(self):
+        """Explicit None target_schema must not write the key to exported JSON."""
+        body = _export_body(target_schema=None)
+        response = client.post("/registry/export", json=body)
+        assert response.status_code == 200
+        content = json.loads(response.json()["content"])
+        assert "target_schema" not in content
+
+    def test_export_approved_mappings_null_omits_key(self):
+        """Explicit None approved_mappings must not write the key to exported JSON."""
+        body = _export_body(approved_mappings=None)
+        response = client.post("/registry/export", json=body)
+        assert response.status_code == 200
+        content = json.loads(response.json()["content"])
+        assert "approved_mappings" not in content
+
+    def test_export_target_schema_write_order_after_fields(self):
+        """target_schema must appear after 'fields' in the JSON key order."""
+        body = _export_body(target_schema=_AIRNOVA_TARGET_SCHEMA)
+        response = client.post("/registry/export", json=body)
+        raw = response.json()["content"]
+        fields_pos = raw.index('"fields"')
+        schema_pos = raw.index('"target_schema"')
+        assert schema_pos > fields_pos
+
+    def test_export_approved_mappings_write_order_after_target_schema(self):
+        """approved_mappings must appear after 'target_schema' in the JSON key order."""
+        body = _export_body(
+            target_schema=_AIRNOVA_TARGET_SCHEMA,
+            approved_mappings=_AIRNOVA_APPROVED_MAPPINGS,
+        )
+        response = client.post("/registry/export", json=body)
+        raw = response.json()["content"]
+        schema_pos = raw.index('"target_schema"')
+        mappings_pos = raw.index('"approved_mappings"')
+        assert mappings_pos > schema_pos
+
+
 class TestExportStubRegressionCheck:
     """
     Regression tests verifying the old 501 stub behaviour no longer applies.
