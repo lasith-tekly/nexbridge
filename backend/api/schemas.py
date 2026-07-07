@@ -288,6 +288,98 @@ class AnalyseResponse(BaseModel):
     )
 
 
+class SystemAFieldInput(BaseModel):
+    """A single System A field with its known tier and threshold."""
+
+    name: str = Field(..., description="Field name from System A")
+    tier: int = Field(..., ge=1, le=4, description="Known classification tier (1–4)")
+    threshold: float = Field(..., ge=0.0, le=1.0, description="Confidence threshold for this tier")
+
+
+class ProposeMappingsRequest(BaseModel):
+    """Request payload for POST /registry/propose-mappings."""
+
+    domain: str = Field(..., description="Integration domain context (e.g. 'flight-ops')")
+    source_system: str = Field(..., description="Name of System A (e.g. 'FMS')")
+    target_system: str = Field(..., description="Name of System B (e.g. 'GSP')")
+    system_a_fields: list[SystemAFieldInput] = Field(
+        ...,
+        description="System A fields with known tier and threshold"
+    )
+    system_b_fields: list[str] = Field(
+        ...,
+        description="System B field names to classify and map to"
+    )
+
+    @field_validator("system_a_fields")
+    @classmethod
+    def validate_system_a_not_empty(cls, v: list) -> list:
+        """Reject an empty system_a_fields list."""
+        if not v:
+            raise ValueError("system_a_fields must not be empty")
+        return v
+
+    @field_validator("system_b_fields")
+    @classmethod
+    def validate_system_b_not_empty(cls, v: list) -> list:
+        """Reject an empty system_b_fields list."""
+        if not v:
+            raise ValueError("system_b_fields must not be empty")
+        return v
+
+
+class SystemBTierResult(BaseModel):
+    """LLM-classified tier for a single System B field."""
+
+    tier: int = Field(..., ge=1, le=4, description="Classification tier (1–4)")
+    threshold: float = Field(..., ge=0.0, le=1.0, description="Confidence threshold for this tier")
+    reasoning: str = Field(..., description="LLM reasoning for the tier classification")
+
+
+class MappingProposal(BaseModel):
+    """A single proposed semantic mapping from a System A field to a System B field."""
+
+    source_field: str = Field(..., description="System A field name")
+    target_field: str = Field(..., description="System B field name")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Mapping confidence (0.0–1.0)")
+    reasoning: str = Field(..., description="Why these fields are semantically equivalent")
+    source_tier: int = Field(..., ge=1, le=4, description="Known tier of the System A field")
+    target_tier: int = Field(..., ge=1, le=4, description="Classified tier of the System B field")
+    tier_mismatch: bool = Field(..., description="True when source_tier != target_tier")
+    effective_tier: int = Field(
+        ...,
+        ge=1,
+        le=4,
+        description="Most restrictive tier: min(source_tier, target_tier)"
+    )
+    effective_threshold: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Confidence threshold for the effective tier"
+    )
+
+
+class ProposeMappingsResponse(BaseModel):
+    """Response from POST /registry/propose-mappings."""
+
+    domain: str = Field(..., description="Integration domain")
+    source_system: str = Field(..., description="System A name")
+    target_system: str = Field(..., description="System B name")
+    system_b_tiers: dict[str, SystemBTierResult] = Field(
+        ...,
+        description="Tier classification for each System B field"
+    )
+    proposed_mappings: list[MappingProposal] = Field(
+        ...,
+        description="One mapping proposal per System A field"
+    )
+    tier_mismatches: list[str] = Field(
+        ...,
+        description="Source field names where source_tier != target_tier"
+    )
+
+
 class ExportField(BaseModel):
     """A single field definition for registry export."""
 

@@ -28,6 +28,7 @@ from backend.core.constants import CONFIDENCE_THRESHOLDS
 from backend.core.classification.registry import ClassificationRegistry, list_available_registries
 from backend.core.format_registry import get_parser
 from backend.core.agents.registry_analyser import analyse_fields
+from backend.core.agents.mapping_proposer import propose_mappings
 
 # Local — API schemas
 from backend.api.schemas import (
@@ -44,6 +45,10 @@ from backend.api.schemas import (
     AnalyseResponse,
     ExportRequest,
     ExportResponse,
+    ProposeMappingsRequest,
+    ProposeMappingsResponse,
+    SystemBTierResult,
+    MappingProposal,
 )
 
 
@@ -260,6 +265,52 @@ async def analyse_registry(request: AnalyseRequest) -> AnalyseResponse:
     except Exception as e:
         print(f"[API] Unhandled analyse error: {e}")
         raise HTTPException(status_code=500, detail="Internal analyse error")
+
+
+@app.post("/registry/propose-mappings", response_model=ProposeMappingsResponse)
+async def propose_mappings_endpoint(
+    request: ProposeMappingsRequest,
+) -> ProposeMappingsResponse:
+    """
+    Classify System B fields into tiers and propose semantic mappings from System A.
+
+    Makes a single LLM call that:
+    - Classifies each System B field into T1–T4 with reasoning
+    - Proposes a matching System B field for each System A field
+    - Calculates effective_tier = min(source_tier, target_tier) per mapping
+    - Flags tier mismatches where source_tier != target_tier
+    """
+    try:
+        result = propose_mappings(
+            domain=request.domain,
+            source_system=request.source_system,
+            target_system=request.target_system,
+            system_a_fields=[f.model_dump() for f in request.system_a_fields],
+            system_b_fields=request.system_b_fields,
+        )
+
+        system_b_tiers = {
+            name: SystemBTierResult(**data)
+            for name, data in result["system_b_tiers"].items()
+        }
+        proposed_mappings_out = [
+            MappingProposal(**m) for m in result["proposed_mappings"]
+        ]
+
+        return ProposeMappingsResponse(
+            domain=request.domain,
+            source_system=request.source_system,
+            target_system=request.target_system,
+            system_b_tiers=system_b_tiers,
+            proposed_mappings=proposed_mappings_out,
+            tier_mismatches=result["tier_mismatches"],
+        )
+
+    except NexBridgeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        print(f"[API] Unhandled propose-mappings error: {e}")
+        raise HTTPException(status_code=500, detail="Internal propose-mappings error")
 
 
 @app.post("/registry/export", response_model=ExportResponse)
