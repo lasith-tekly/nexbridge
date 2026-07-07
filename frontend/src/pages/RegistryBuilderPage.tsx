@@ -649,6 +649,9 @@ export const RegistryBuilderPage: React.FC = () => {
             placeholder="e.g. flight-ops, hr-system, patient-records"
             className="w-full bg-[#0f1724] border border-[#1e2d45] rounded-lg px-4 py-3 text-white placeholder-[#334155] focus:outline-none focus:border-[#06b6d4] transition-colors"
           />
+          <p className="text-xs text-[#64748b] mt-1">
+            Use letters, numbers, hyphens, or underscores (e.g. flight-ops)
+          </p>
         </div>
 
         <div>
