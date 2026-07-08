@@ -77,6 +77,7 @@ class ClassificationRegistry:
         self._default_tier: int = registry_data.get("default_tier", 4)
         self._version: str = registry_data.get("version", "unknown")
         self._domain: str = registry_data.get("domain", "unknown")
+        self._approved_mappings: dict = registry_data.get("approved_mappings", {})
 
         # Log successful load
         field_count = len(self._fields)
@@ -200,6 +201,19 @@ class ClassificationRegistry:
         )
 
         return payload_tier
+
+    def get_approved_mapping(self, source_field: str) -> dict | None:
+        """
+        Return the pre-approved mapping dict for a source field, or None.
+
+        Returns None when:
+        - The registry has no "approved_mappings" section
+        - The field is not present in approved_mappings
+
+        Returns dict with keys:
+            target_field, confidence, approved_by, approved_at, llm_generated
+        """
+        return self._approved_mappings.get(source_field) or None
 
     def list_all_fields(self) -> dict:
         """Return a copy of all registered fields as a plain dict."""
