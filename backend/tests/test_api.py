@@ -293,65 +293,189 @@ class TestTransformEndpoint:
 # TestAnalyseStubEndpoint
 # =============================================================================
 
-class TestAnalyseStubEndpoint:
-    """Tests for POST /registry/analyse (Phase 4 stub)."""
+class TestAnalyseEndpoint:
+    """Tests for POST /registry/analyse (real LLM implementation)."""
 
-    def test_analyse_returns_501(self):
-        """POST /registry/analyse must return HTTP 501 (Not Implemented)."""
-        response = client.post(
-            "/registry/analyse", json={"payload": "<test/>"}
-        )
-        assert response.status_code == 501
+    def test_analyse_valid_xml_returns_200(self):
+        """POST /registry/analyse with valid XML payload must return HTTP 200."""
+        from unittest.mock import patch, MagicMock
+        from backend.core.agents.registry_analyser import BatchAnalysisResult, FieldAnalysisResult
 
-    def test_analyse_detail_mentions_phase_4(self):
-        """The 501 error detail must mention 'Phase 4' to guide the caller."""
+        mock_result = BatchAnalysisResult(fields=[
+            FieldAnalysisResult(
+                field_name="employee_id",
+                suggested_tier=3,
+                suggested_label="Business Important",
+                reasoning="Employee identifiers are business-critical.",
+                confidence=0.9,
+            )
+        ])
+        mock_structured_llm = MagicMock(return_value=mock_result)
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+
+        with patch("backend.core.agents.registry_analyser.get_llm", return_value=mock_llm):
+            response = client.post(
+                "/registry/analyse",
+                json={
+                    "payload": "<record><employee_id>E-001</employee_id></record>",
+                    "source_format": "xml",
+                },
+            )
+        assert response.status_code == 200
+
+    def test_analyse_response_has_required_fields(self):
+        """Response must include fields, source_format, and field_count."""
+        from unittest.mock import patch, MagicMock
+        from backend.core.agents.registry_analyser import BatchAnalysisResult, FieldAnalysisResult
+
+        mock_result = BatchAnalysisResult(fields=[
+            FieldAnalysisResult(
+                field_name="department",
+                suggested_tier=3,
+                suggested_label="Business Important",
+                reasoning="Dept is business-level.",
+                confidence=0.85,
+            )
+        ])
+        mock_structured_llm = MagicMock(return_value=mock_result)
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+
+        with patch("backend.core.agents.registry_analyser.get_llm", return_value=mock_llm):
+            response = client.post(
+                "/registry/analyse",
+                json={
+                    "payload": "<record><department>Ops</department></record>",
+                    "source_format": "xml",
+                },
+            )
+        data = response.json()
+        assert "fields" in data
+        assert "source_format" in data
+        assert "field_count" in data
+
+    def test_analyse_field_count_matches_fields_len(self):
+        """field_count in response must equal len(fields)."""
+        from unittest.mock import patch, MagicMock
+        from backend.core.agents.registry_analyser import BatchAnalysisResult, FieldAnalysisResult
+
+        mock_result = BatchAnalysisResult(fields=[
+            FieldAnalysisResult(
+                field_name="department",
+                suggested_tier=3,
+                suggested_label="Business Important",
+                reasoning="Dept.",
+                confidence=0.85,
+            )
+        ])
+        mock_structured_llm = MagicMock(return_value=mock_result)
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+
+        with patch("backend.core.agents.registry_analyser.get_llm", return_value=mock_llm):
+            response = client.post(
+                "/registry/analyse",
+                json={
+                    "payload": "<record><department>Ops</department></record>",
+                    "source_format": "xml",
+                },
+            )
+        data = response.json()
+        assert data["field_count"] == len(data["fields"])
+
+    def test_analyse_malformed_xml_returns_400(self):
+        """Malformed XML payload must return HTTP 400."""
         response = client.post(
-            "/registry/analyse", json={"payload": "<test/>"}
+            "/registry/analyse",
+            json={"payload": "<<<not xml>>>", "source_format": "xml"},
         )
-        detail = response.json()["detail"]
-        assert "Phase 4" in detail
+        assert response.status_code == 400
 
 
 # =============================================================================
 # TestExportStubEndpoint
 # =============================================================================
 
-class TestExportStubEndpoint:
-    """Tests for POST /registry/export (Phase 4 stub)."""
+class TestExportEndpoint:
+    """Tests for POST /registry/export (real implementation)."""
 
-    def test_export_returns_501(self):
-        """POST /registry/export must return HTTP 501 (Not Implemented)."""
+    def test_export_valid_t4_fields_returns_200(self):
+        """POST /registry/export with valid T4 fields must return HTTP 200."""
         response = client.post(
             "/registry/export",
             json={
                 "fields": [
                     {
-                        "field_name": "x",
-                        "tier": 1,
-                        "label": "Safety Critical",
-                        "threshold": 1.0,
+                        "field_name": "notes",
+                        "tier": 4,
+                        "label": "Informational",
+                        "threshold": 0.0,
                     }
                 ],
-                "domain": "test",
+                "integration_name": "test-integration",
             },
         )
-        assert response.status_code == 501
+        assert response.status_code == 200
 
-    def test_export_detail_mentions_phase_4(self):
-        """The 501 error detail must mention 'Phase 4' to guide the caller."""
+    def test_export_response_has_required_fields(self):
+        """Response must include filename, content, field_count, t1_count, registry_id, saved_to_server."""
         response = client.post(
             "/registry/export",
             json={
                 "fields": [
                     {
-                        "field_name": "x",
+                        "field_name": "notes",
+                        "tier": 4,
+                        "label": "Informational",
+                        "threshold": 0.0,
+                    }
+                ],
+                "integration_name": "test-integration",
+            },
+        )
+        data = response.json()
+        assert "filename" in data
+        assert "content" in data
+        assert "field_count" in data
+        assert "t1_count" in data
+        assert "registry_id" in data
+        assert "saved_to_server" in data
+
+    def test_export_t1_with_low_threshold_returns_400(self):
+        """T1 field with threshold != 1.0 must return HTTP 400."""
+        response = client.post(
+            "/registry/export",
+            json={
+                "fields": [
+                    {
+                        "field_name": "weight_limit",
+                        "tier": 1,
+                        "label": "Safety Critical",
+                        "threshold": 0.95,
+                        "confirmed_individually": True,
+                    }
+                ],
+                "integration_name": "test-integration",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_export_t1_without_confirmation_returns_400(self):
+        """T1 field without confirmed_individually=True must return HTTP 400."""
+        response = client.post(
+            "/registry/export",
+            json={
+                "fields": [
+                    {
+                        "field_name": "weight_limit",
                         "tier": 1,
                         "label": "Safety Critical",
                         "threshold": 1.0,
+                        "confirmed_individually": False,
                     }
                 ],
-                "domain": "test",
+                "integration_name": "test-integration",
             },
         )
-        detail = response.json()["detail"]
-        assert "Phase 4" in detail
+        assert response.status_code == 400

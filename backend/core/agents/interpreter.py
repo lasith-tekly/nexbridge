@@ -10,12 +10,13 @@ See docs/SOLUTION_AGENTS.md for full specification.
 
 import os
 import xml.etree.ElementTree as ET
-from typing import Any
+from typing import Any, Optional
 
 from backend.core.state import NexBridgeState
 from backend.core.models import FieldMapping, Tier
 from backend.core.llm import get_llm
 from backend.core.exceptions import LLMError
+from backend.core.classification.registry import ClassificationRegistry
 
 
 def _run_interpretation(
@@ -23,17 +24,24 @@ def _run_interpretation(
     target_schema: dict,
     field_classifications: dict,
     provider_name: str,
-    parsed_fields: dict
+    parsed_fields: dict,
+    registry: Optional[ClassificationRegistry] = None,
 ) -> dict[str, FieldMapping]:
     """
-    Private helper that runs LLM-powered semantic field mapping.
-    Returns FieldMapping objects (not dicts).
+    Private helper that runs semantic field mapping.
+
+    For each field, first checks the registry for a pre-approved mapping.
+    If found, returns that result and skips the LLM call.
+    If not found, falls through to the LLM as before.
 
     Args:
         raw_payload: Raw input payload string
         target_schema: Flat dict of target field names
         field_classifications: Registry classification results
         provider_name: LLM provider name for error handling
+        parsed_fields: Pre-parsed {field_name: value} dict
+        registry: Loaded ClassificationRegistry for pre-approved lookup.
+                  If None, all fields fall through to the LLM.
 
     Returns:
         Dict mapping field_name -> FieldMapping object (not dict)
@@ -42,7 +50,7 @@ def _run_interpretation(
         LLMError: If LLM call fails or returns invalid output
         ValueError: If confidence score is outside [0.0, 1.0] range
     """
-    # Build LLM with structured output
+    # Build LLM with structured output — lazily used only for fields not pre-approved
     llm = get_llm()
     structured_llm = llm.with_structured_output(FieldMapping)
 
@@ -63,7 +71,32 @@ def _run_interpretation(
             tier_value = classification.tier.value
             tier_label = classification.label
 
-        # Build LLM prompt
+        # Check registry for a pre-approved mapping — skip LLM if found
+        if registry is not None:
+            approved = registry.get_approved_mapping(field_name)
+            if approved is not None:
+                result = FieldMapping(
+                    field_name=field_name,
+                    target_field=approved["target_field"],
+                    transformed_value=field_value,
+                    confidence=approved["confidence"],
+                    reasoning=(
+                        f"Pre-approved mapping from registry "
+                        f"(approved_by: {approved['approved_by']}, "
+                        f"confidence: {approved['confidence']:.2f}). "
+                        f"LLM inference skipped."
+                    ),
+                    tier=Tier(tier_value),
+                    source="registry",
+                )
+                mappings[field_name] = result
+                print(
+                    f"[INTERPRETER] field={field_name} → {approved['target_field']} "
+                    f"source=registry (LLM skipped)"
+                )
+                continue
+
+        # No pre-approved mapping — build LLM prompt and call
         prompt = _build_llm_prompt(
             field_name=field_name,
             field_value=field_value,
@@ -74,7 +107,7 @@ def _run_interpretation(
 
         # Call LLM with structured output
         try:
-            result: FieldMapping = structured_llm.invoke(prompt)
+            result = structured_llm.invoke(prompt)
         except Exception as e:
             raise LLMError(
                 provider=provider_name,
@@ -88,7 +121,7 @@ def _run_interpretation(
                 f"Must be in range [0.0, 1.0]"
             )
 
-        # Store FieldMapping object (not dict)
+        # Store with source="llm" (FieldMapping default)
         mappings[field_name] = result
 
     return mappings
@@ -123,9 +156,16 @@ def interpreter_node(state: NexBridgeState) -> NexBridgeState:
     target_schema = state["target_schema"]
     field_classifications = state["field_classifications"]
     parsed_fields = state.get("parsed_fields", {})
+    registry_id = state.get("registry_id", "default")
 
     # Get provider name for error handling
     provider_name = os.getenv("LLM_PROVIDER", "anthropic")
+
+    # Load registry once for pre-approved mapping lookup
+    try:
+        registry = ClassificationRegistry.load(registry_id)
+    except Exception:
+        registry = None  # degrade gracefully — fall through to LLM for all fields
 
     # Run interpretation
     mappings = _run_interpretation(
@@ -134,6 +174,7 @@ def interpreter_node(state: NexBridgeState) -> NexBridgeState:
         field_classifications=field_classifications,
         provider_name=provider_name,
         parsed_fields=parsed_fields,
+        registry=registry,
     )
 
     # Extract confidence_scores using attribute access (not dict key access)
@@ -148,11 +189,11 @@ def interpreter_node(state: NexBridgeState) -> NexBridgeState:
         for field_name, mapping in mappings.items()
     }
 
-    # Log mappings
-    for field_name, mapping in mappings.items():
+    # Log mappings (read from stored dicts to avoid mock issues in tests)
+    for field_name, mapping_dict in interpreter_run_1.items():
         print(
-            f"[INTERPRETER RUN 1] field={field_name} → {mapping.target_field} "
-            f"conf={mapping.confidence:.2f}"
+            f"[INTERPRETER RUN 1] field={field_name} → {mapping_dict.get('target_field')} "
+            f"conf={mapping_dict.get('confidence', 0):.2f} source={mapping_dict.get('source', 'llm')}"
         )
 
     # Return updated state
@@ -191,17 +232,25 @@ def interpreter_run_2_node(state: NexBridgeState) -> NexBridgeState:
     target_schema = state["target_schema"]
     field_classifications = state["field_classifications"]
     parsed_fields = state.get("parsed_fields", {})
+    registry_id = state.get("registry_id", "default")
 
     # Get provider name for error handling
     provider_name = os.getenv("LLM_PROVIDER", "anthropic")
 
-    # Run interpretation (completely independent)
+    # Load registry once for pre-approved mapping lookup (independent of Run 1)
+    try:
+        registry = ClassificationRegistry.load(registry_id)
+    except Exception:
+        registry = None  # degrade gracefully — fall through to LLM for all fields
+
+    # Run interpretation (completely independent of Run 1)
     mappings = _run_interpretation(
         raw_payload=raw_payload,
         target_schema=target_schema,
         field_classifications=field_classifications,
         provider_name=provider_name,
         parsed_fields=parsed_fields,
+        registry=registry,
     )
 
     # Convert FieldMapping objects to dicts for state storage
@@ -210,11 +259,11 @@ def interpreter_run_2_node(state: NexBridgeState) -> NexBridgeState:
         for field_name, mapping in mappings.items()
     }
 
-    # Log mappings
-    for field_name, mapping in mappings.items():
+    # Log mappings (read from stored dicts to avoid mock issues in tests)
+    for field_name, mapping_dict in interpreter_run_2.items():
         print(
-            f"[INTERPRETER RUN 2] field={field_name} → {mapping.target_field} "
-            f"conf={mapping.confidence:.2f}"
+            f"[INTERPRETER RUN 2] field={field_name} → {mapping_dict.get('target_field')} "
+            f"conf={mapping_dict.get('confidence', 0):.2f} source={mapping_dict.get('source', 'llm')}"
         )
 
     # Return updated state

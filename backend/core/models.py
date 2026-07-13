@@ -87,6 +87,10 @@ class FieldMapping(BaseModel):
         ...,
         description="Classification tier for this field"
     )
+    source: str = Field(
+        default="llm",
+        description="Mapping source: 'registry' (pre-approved) or 'llm' (inferred)"
+    )
 
 
 # --- Audit ---
@@ -135,6 +139,10 @@ class AuditEntry(BaseModel):
     reasoning: str = Field(
         ...,
         description="Reasoning for the decision"
+    )
+    source: str = Field(
+        default="llm",
+        description="Mapping source: 'registry' (pre-approved) or 'llm' (inferred)"
     )
 
     model_config = ConfigDict(frozen=True)

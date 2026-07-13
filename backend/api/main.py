@@ -6,11 +6,15 @@ See docs/SOLUTION_AGENTS.md for full specification.
 """
 
 # Standard library
+import json
+import os
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 
 # Third-party
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
@@ -19,8 +23,12 @@ load_dotenv()
 # Local — core pipeline
 from backend.core.state import NexBridgeState
 from backend.core.orchestrator import build_graph
-from backend.core.exceptions import ParseError
-from backend.core.classification.registry import ClassificationRegistry
+from backend.core.exceptions import ParseError, RegistryNotFoundError, NexBridgeError
+from backend.core.constants import CONFIDENCE_THRESHOLDS
+from backend.core.classification.registry import ClassificationRegistry, list_available_registries
+from backend.core.format_registry import get_parser
+from backend.core.agents.registry_analyser import analyse_fields
+from backend.core.agents.mapping_proposer import propose_mappings
 
 # Local — API schemas
 from backend.api.schemas import (
@@ -29,11 +37,18 @@ from backend.api.schemas import (
     HealthResponse,
     RegistryResponse,
     RegistryFieldInfo,
+    RegistriesResponse,
     ClassifyRequest,
     ClassifyResponse,
     AnalyseRequest,
+    AnalysedField,
     AnalyseResponse,
     ExportRequest,
+    ExportResponse,
+    ProposeMappingsRequest,
+    ProposeMappingsResponse,
+    SystemBTierResult,
+    MappingProposal,
 )
 
 
@@ -65,16 +80,22 @@ async def transform(request: TransformRequestSchema) -> TransformResponseSchema:
     Returns GO/HOLD decision with the translated payload.
     """
     try:
-        # a. Record start time in milliseconds
+        # a. Validate registry_id exists before entering the pipeline —
+        # RegistryNotFoundError raised inside graph.invoke() may be
+        # wrapped by LangGraph and miss the typed except clause below.
+        ClassificationRegistry.load(request.registry_id)
+
+        # b. Record start time in milliseconds
         start_ms = time.time_ns() // 1_000_000
 
-        # b. Build initial NexBridgeState
+        # c. Build initial NexBridgeState — registry_id passed into state
         state: NexBridgeState = {
             "raw_payload": request.payload,
             "source_format": request.source_format,
             "target_format": request.target_format,
             "target_schema": request.target_schema,
             "root_element": request.root_element,
+            "registry_id": request.registry_id,
             "field_classifications": {},
             "parsed_fields": {},
             "payload_tier": 0,
@@ -89,19 +110,19 @@ async def transform(request: TransformRequestSchema) -> TransformResponseSchema:
             "processing_start_ms": start_ms,
         }
 
-        # c. Run pipeline
+        # d. Run pipeline
         graph = build_graph()
         result = graph.invoke(state)
 
-        # d. Calculate processing time
+        # e. Calculate processing time
         processing_time_ms = (time.time_ns() // 1_000_000) - start_ms
 
-        # e. Get anomaly count from validation_result
+        # f. Get anomaly count from validation_result
         anomaly_count = (
             result.get("validation_result", {}).get("anomaly_count", 0)
         )
 
-        # f. Return response
+        # g. Return response
         return TransformResponseSchema(
             decision=result["decision"],
             decision_reason=result["decision_reason"],
@@ -112,6 +133,11 @@ async def transform(request: TransformRequestSchema) -> TransformResponseSchema:
             processing_time_ms=processing_time_ms,
         )
 
+    except RegistryNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Registry '{e.registry_id}' not found. Available: {', '.join(e.available)}"
+        )
     except ParseError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except ValidationError as e:
@@ -141,10 +167,12 @@ async def health() -> HealthResponse:
 
 
 @app.get("/registry", response_model=RegistryResponse)
-async def get_registry() -> RegistryResponse:
+async def get_registry(
+    registry_id: str = Query(default="default", description="Registry ID to load")
+) -> RegistryResponse:
     """Return full classification registry with tier and threshold per field."""
     try:
-        registry = ClassificationRegistry()
+        registry = ClassificationRegistry.load(registry_id)
         all_fields = registry.list_all_fields()
         fields = {
             field_name: RegistryFieldInfo(
@@ -160,6 +188,11 @@ async def get_registry() -> RegistryResponse:
             field_count=len(fields),
             fields=fields,
         )
+    except RegistryNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Registry '{e.registry_id}' not found. Available: {', '.join(e.available)}"
+        )
     except Exception as e:
         print(f"[API] Registry load error: {e}")
         raise HTTPException(status_code=500, detail="Registry unavailable")
@@ -169,7 +202,7 @@ async def get_registry() -> RegistryResponse:
 async def classify(request: ClassifyRequest) -> ClassifyResponse:
     """Classify a list of field names and return tier assignments."""
     try:
-        registry = ClassificationRegistry()
+        registry = ClassificationRegistry.load(request.registry_id)
         classifications = {}
         for field_name in request.field_names:
             fc = registry.classify(field_name)
@@ -183,24 +216,178 @@ async def classify(request: ClassifyRequest) -> ClassifyResponse:
             payload_tier=payload_tier,
             classifications=classifications,
         )
+    except RegistryNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Registry '{e.registry_id}' not found. Available: {', '.join(e.available)}"
+        )
     except Exception as e:
         print(f"[API] Classify error: {e}")
         raise HTTPException(status_code=500, detail="Classification failed")
 
 
+@app.get("/registries", response_model=RegistriesResponse)
+async def list_registries() -> RegistriesResponse:
+    """Return the list of available registry IDs."""
+    registries = list_available_registries()
+    return RegistriesResponse(registries=registries, count=len(registries))
+
+
 @app.post("/registry/analyse", response_model=AnalyseResponse)
 async def analyse_registry(request: AnalyseRequest) -> AnalyseResponse:
-    """Stub — Registry analysis is available in Phase 4."""
-    raise HTTPException(
-        status_code=501,
-        detail="Registry analysis is available in Phase 4. Use registry.json directly for now.",
-    )
+    """
+    Analyse a payload's fields and return AI-suggested tier classifications.
+
+    Extracts field names from the payload, runs a single LLM batch call,
+    and returns suggested tiers with reasoning for each field.
+    """
+    try:
+        parser = get_parser(request.source_format)
+        field_names = parser.extract_field_names(request.payload)
+
+        results = analyse_fields(
+            field_names=field_names,
+            source_format=request.source_format,
+            context=request.context,
+        )
+
+        return AnalyseResponse(
+            fields=[AnalysedField(**r) for r in results],
+            source_format=request.source_format,
+            field_count=len(results),
+        )
+    except ParseError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NexBridgeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        print(f"[API] Unhandled analyse error: {e}")
+        raise HTTPException(status_code=500, detail="Internal analyse error")
 
 
-@app.post("/registry/export", response_model=None)
-async def export_registry(request: ExportRequest) -> None:
-    """Stub — Registry export is available in Phase 4."""
-    raise HTTPException(
-        status_code=501,
-        detail="Registry export is available in Phase 4. Use registry.json directly for now.",
+@app.post("/registry/propose-mappings", response_model=ProposeMappingsResponse)
+async def propose_mappings_endpoint(
+    request: ProposeMappingsRequest,
+) -> ProposeMappingsResponse:
+    """
+    Classify System B fields into tiers and propose semantic mappings from System A.
+
+    Makes a single LLM call that:
+    - Classifies each System B field into T1–T4 with reasoning
+    - Proposes a matching System B field for each System A field
+    - Calculates effective_tier = min(source_tier, target_tier) per mapping
+    - Flags tier mismatches where source_tier != target_tier
+    """
+    try:
+        result = propose_mappings(
+            domain=request.domain,
+            source_system=request.source_system,
+            target_system=request.target_system,
+            system_a_fields=[f.model_dump() for f in request.system_a_fields],
+            system_b_fields=request.system_b_fields,
+        )
+
+        system_b_tiers = {
+            name: SystemBTierResult(**data)
+            for name, data in result["system_b_tiers"].items()
+        }
+        proposed_mappings_out = [
+            MappingProposal(**m) for m in result["proposed_mappings"]
+        ]
+
+        return ProposeMappingsResponse(
+            domain=request.domain,
+            source_system=request.source_system,
+            target_system=request.target_system,
+            system_b_tiers=system_b_tiers,
+            proposed_mappings=proposed_mappings_out,
+            tier_mismatches=result["tier_mismatches"],
+        )
+
+    except NexBridgeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        print(f"[API] Unhandled propose-mappings error: {e}")
+        raise HTTPException(status_code=500, detail="Internal propose-mappings error")
+
+
+@app.post("/registry/export", response_model=ExportResponse)
+async def export_registry(request: ExportRequest) -> ExportResponse:
+    """
+    Build and optionally save a registry.json from confirmed field classifications.
+
+    Validates T1 safety rules, serialises to JSON, writes to REGISTRY_DIR if set,
+    and returns the full content for client-side download.
+    """
+    # a. Validate T1 safety rules before touching the filesystem
+    for field in request.fields:
+        if field.tier == 1:
+            if field.threshold != CONFIDENCE_THRESHOLDS[1]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"T1 field '{field.field_name}' must have threshold 1.0. "
+                        f"Received: {field.threshold}"
+                    ),
+                )
+            if not field.confirmed_individually:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"T1 field '{field.field_name}' requires individual confirmation.",
+                )
+
+    # b. Build registry dict
+    registry: dict = {
+        "version": "1.0",
+        "domain": request.integration_name,
+        "created_by": "registry-builder",
+        "created_at": datetime.now(timezone.utc).isoformat()[:10],
+        "field_count": len(request.fields),
+        "fields": {},
+    }
+
+    for field in request.fields:
+        entry: dict = {
+            "tier": field.tier,
+            "label": field.label,
+            "threshold": float(field.threshold),
+        }
+        if field.description:
+            entry["description"] = field.description
+        if field.confirmed_individually:
+            entry["confirmed_individually"] = True
+        registry["fields"][field.field_name] = entry
+
+    # c. Append optional mapping data if provided
+    if request.target_schema:
+        registry["target_schema"] = request.target_schema
+    if request.approved_mappings:
+        registry["approved_mappings"] = request.approved_mappings
+
+    # d. Serialise
+    content = json.dumps(registry, indent=2)
+    filename = f"{request.integration_name}.json"
+
+    # e. Save to REGISTRY_DIR if configured
+    registry_dir = os.getenv("REGISTRY_DIR")
+    saved = False
+    if registry_dir:
+        path = Path(registry_dir) / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        saved = True
+        print(f"[REGISTRY_EXPORT] Saved {filename} to {registry_dir}")
+    else:
+        print(f"[REGISTRY_EXPORT] REGISTRY_DIR not set — returning content only")
+
+    # f. Return response
+    return ExportResponse(
+        filename=filename,
+        content=content,
+        field_count=len(request.fields),
+        t1_count=sum(1 for f in request.fields if f.tier == 1),
+        registry_id=request.integration_name,
+        saved_to_server=saved,
     )

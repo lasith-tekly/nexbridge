@@ -1346,3 +1346,217 @@ class TestBuildLlmPrompt:
         assert "confidence" in result.lower()
         assert "reasoning" in result.lower()
         assert "transformed_value" in result.lower()
+
+
+# =============================================================================
+# TestPreApprovedMappings — registry lookup before LLM
+# =============================================================================
+
+class TestPreApprovedMappings:
+    """
+    Tests for the hybrid mapping path: pre-approved registry lookup
+    before the LLM call in the interpreter.
+
+    AirNova scenario:
+      System A: weight_limit (T1), flight_number (T3)
+      approved_mappings: weight_limit → max_permitted_load (confidence 0.98)
+    """
+
+    # ── Shared registry fixture helpers ───────────────────────────────────────
+
+    @staticmethod
+    def _registry_json(with_approved: bool = True) -> dict:
+        """Minimal registry JSON for AirNova scenario."""
+        data = {
+            "version": "1.0",
+            "domain": "flight-ops",
+            "default_tier": 4,
+            "fields": {
+                "weight_limit": {"tier": 1, "label": "Safety Critical", "threshold": 1.0},
+                "flight_number": {"tier": 3, "label": "Business Important", "threshold": 0.80},
+            },
+        }
+        if with_approved:
+            data["approved_mappings"] = {
+                "weight_limit": {
+                    "target_field": "max_permitted_load",
+                    "confidence": 0.98,
+                    "approved_by": "registry_builder",
+                    "approved_at": "2026-07-07T10:00:00",
+                    "llm_generated": True,
+                }
+            }
+        return data
+
+    @staticmethod
+    def _base_state(**overrides) -> dict:
+        base = {
+            "raw_payload": "<record><weight_limit>250</weight_limit></record>",
+            "source_format": "xml",
+            "target_format": "json",
+            "target_schema": {"max_permitted_load": "number"},
+            "field_classifications": {
+                "weight_limit": {"tier": Tier.T1, "label": "Safety Critical"}
+            },
+            "payload_tier": 1,
+            "interpreter_run_1": {},
+            "interpreter_run_2": {},
+            "validation_result": {},
+            "translated_payload": None,
+            "decision": None,
+            "decision_reason": None,
+            "confidence_scores": {},
+            "parsed_fields": {"weight_limit": "250"},
+            "root_element": None,
+            "audit_log": [],
+            "processing_start_ms": 0,
+        }
+        base.update(overrides)
+        return base
+
+    # ── Tests ─────────────────────────────────────────────────────────────────
+
+    def test_pre_approved_field_skips_llm(self, mocker, tmp_path):
+        """
+        When a field has a pre-approved registry mapping, the LLM must not
+        be called and the result must carry source='registry'.
+        """
+        import json
+        from backend.core.agents.interpreter import interpreter_node
+
+        # Write a custom registry with approved_mappings
+        reg_file = tmp_path / "flight-ops.json"
+        reg_file.write_text(json.dumps(self._registry_json(with_approved=True)))
+
+        mock_structured_llm = MagicMock()
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+        mocker.patch("backend.core.agents.interpreter.get_llm", return_value=mock_llm)
+
+        mocker.patch.dict("os.environ", {"REGISTRY_PATH": str(reg_file)})
+
+        state = self._base_state()
+        result = interpreter_node(state)
+
+        # LLM invoke must NOT have been called — registry short-circuits before invoke
+        mock_structured_llm.invoke.assert_not_called()
+
+        # Correct target field from registry
+        assert result["interpreter_run_1"]["weight_limit"]["target_field"] == "max_permitted_load"
+        assert result["interpreter_run_1"]["weight_limit"]["source"] == "registry"
+        assert result["confidence_scores"]["weight_limit"] == 0.98
+
+    def test_unknown_field_falls_through_to_llm(self, mocker, tmp_path):
+        """
+        A field not in approved_mappings must fall through to the LLM.
+        """
+        import json
+        from backend.core.agents.interpreter import interpreter_node
+
+        reg_file = tmp_path / "flight-ops.json"
+        # Registry with no approved_mappings entry for flight_number
+        reg_file.write_text(json.dumps(self._registry_json(with_approved=False)))
+
+        mock_mapping = Mock(spec=FieldMapping)
+        mock_mapping.field_name = "flight_number"
+        mock_mapping.target_field = "flight_code"
+        mock_mapping.transformed_value = "BA123"
+        mock_mapping.confidence = 0.95
+        mock_mapping.reasoning = "LLM matched flight_number to flight_code"
+        mock_mapping.tier = Tier.T3
+        mock_mapping.source = "llm"
+        mock_mapping.model_dump.return_value = {
+            "field_name": "flight_number",
+            "target_field": "flight_code",
+            "transformed_value": "BA123",
+            "confidence": 0.95,
+            "reasoning": "LLM matched flight_number to flight_code",
+            "tier": 3,
+            "source": "llm",
+        }
+
+        mock_structured_llm = MagicMock()
+        mock_structured_llm.invoke.return_value = mock_mapping
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+        mocker.patch("backend.core.agents.interpreter.get_llm", return_value=mock_llm)
+        mocker.patch.dict("os.environ", {"REGISTRY_PATH": str(reg_file)})
+
+        state = self._base_state(
+            raw_payload="<record><flight_number>BA123</flight_number></record>",
+            field_classifications={"flight_number": {"tier": Tier.T3, "label": "Business Important"}},
+            parsed_fields={"flight_number": "BA123"},
+            target_schema={"flight_code": "string"},
+        )
+        result = interpreter_node(state)
+
+        # LLM must have been called
+        mock_structured_llm.invoke.assert_called_once()
+        assert result["interpreter_run_1"]["flight_number"]["source"] == "llm"
+
+    def test_t1_pre_approved_field_returns_registry_result(self, mocker, tmp_path):
+        """
+        A T1 field with a pre-approved mapping must return the registry result
+        with the approved confidence and source='registry'.
+        """
+        import json
+        from backend.core.agents.interpreter import interpreter_node
+
+        reg_file = tmp_path / "flight-ops.json"
+        reg_file.write_text(json.dumps(self._registry_json(with_approved=True)))
+
+        mocker.patch("backend.core.agents.interpreter.get_llm")
+        mocker.patch.dict("os.environ", {"REGISTRY_PATH": str(reg_file)})
+
+        state = self._base_state()
+        result = interpreter_node(state)
+
+        mapping = result["interpreter_run_1"]["weight_limit"]
+        assert mapping["source"] == "registry"
+        assert mapping["confidence"] == 0.98
+        assert mapping["target_field"] == "max_permitted_load"
+
+    def test_registry_without_approved_mappings_falls_through_to_llm(self, mocker, tmp_path):
+        """
+        A registry with no 'approved_mappings' key must cause all fields to
+        fall through to the LLM without raising any error.
+        """
+        import json
+        from backend.core.agents.interpreter import interpreter_node
+
+        reg_file = tmp_path / "flight-ops.json"
+        reg_file.write_text(json.dumps(self._registry_json(with_approved=False)))
+
+        mock_mapping = Mock(spec=FieldMapping)
+        mock_mapping.field_name = "weight_limit"
+        mock_mapping.target_field = "max_permitted_load"
+        mock_mapping.transformed_value = "250"
+        mock_mapping.confidence = 0.9
+        mock_mapping.reasoning = "LLM inference"
+        mock_mapping.tier = Tier.T1
+        mock_mapping.source = "llm"
+        mock_mapping.model_dump.return_value = {
+            "field_name": "weight_limit",
+            "target_field": "max_permitted_load",
+            "transformed_value": "250",
+            "confidence": 0.9,
+            "reasoning": "LLM inference",
+            "tier": 1,
+            "source": "llm",
+        }
+
+        mock_structured_llm = MagicMock()
+        mock_structured_llm.invoke.return_value = mock_mapping
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output.return_value = mock_structured_llm
+        mocker.patch("backend.core.agents.interpreter.get_llm", return_value=mock_llm)
+        mocker.patch.dict("os.environ", {"REGISTRY_PATH": str(reg_file)})
+
+        state = self._base_state()
+
+        # Must not raise any exception
+        result = interpreter_node(state)
+
+        # LLM must have been called (no approved_mappings)
+        mock_structured_llm.invoke.assert_called_once()
+        assert result["interpreter_run_1"]["weight_limit"]["source"] == "llm"

@@ -1,0 +1,139 @@
+{
+  "version": "1.0",
+  "domain": "generic",
+  "default_tier": 4,
+  "fields": {
+    "weight_limit": {
+      "tier": 1,
+      "label": "Safety Critical",
+      "threshold": 1.0,
+      "description": "Maximum weight capacity - safety critical constraint"
+    },
+    "max_load": {
+      "tier": 1,
+      "label": "Safety Critical",
+      "threshold": 1.0,
+      "description": "Maximum load specification - directly impacts safety"
+    },
+    "safety_rating": {
+      "tier": 1,
+      "label": "Safety Critical",
+      "threshold": 1.0,
+      "description": "Safety rating classification - critical for risk assessment"
+    },
+    "clearance_level": {
+      "tier": 1,
+      "label": "Safety Critical",
+      "threshold": 1.0,
+      "description": "Security clearance level - safety and security critical"
+    },
+    "emergency_stop": {
+      "tier": 1,
+      "label": "Safety Critical",
+      "threshold": 1.0,
+      "description": "Emergency stop indicator - immediate safety protocol"
+    },
+    "hazard_class": {
+      "tier": 1,
+      "label": "Safety Critical",
+      "threshold": 1.0,
+      "description": "Hazard classification - determines safety handling procedures"
+    },
+    "contract_type": {
+      "tier": 2,
+      "label": "Operationally Sensitive",
+      "threshold": 0.95,
+      "description": "Contract classification - affects operational workflows"
+    },
+    "equipment_class": {
+      "tier": 2,
+      "label": "Operationally Sensitive",
+      "threshold": 0.95,
+      "description": "Equipment classification - operational dependencies"
+    },
+    "access_level": {
+      "tier": 2,
+      "label": "Operationally Sensitive",
+      "threshold": 0.95,
+      "description": "System access level - operational security control"
+    },
+    "certification_status": {
+      "tier": 2,
+      "label": "Operationally Sensitive",
+      "threshold": 0.95,
+      "description": "Certification status - operational compliance requirement"
+    },
+    "compliance_flag": {
+      "tier": 2,
+      "label": "Operationally Sensitive",
+      "threshold": 0.95,
+      "description": "Compliance indicator - regulatory requirement flag"
+    },
+    "employee_id": {
+      "tier": 3,
+      "label": "Business Important",
+      "threshold": 0.80,
+      "description": "Employee identifier - business critical for HR processes"
+    },
+    "department": {
+      "tier": 3,
+      "label": "Business Important",
+      "threshold": 0.80,
+      "description": "Department assignment - business organizational structure"
+    },
+    "start_date": {
+      "tier": 3,
+      "label": "Business Important",
+      "threshold": 0.80,
+      "description": "Employment start date - business critical for tenure tracking"
+    },
+    "job_title": {
+      "tier": 3,
+      "label": "Business Important",
+      "threshold": 0.80,
+      "description": "Job title - business organizational hierarchy"
+    },
+    "manager_id": {
+      "tier": 3,
+      "label": "Business Important",
+      "threshold": 0.80,
+      "description": "Manager identifier - business reporting structure"
+    },
+    "cost_centre": {
+      "tier": 3,
+      "label": "Business Important",
+      "threshold": 0.80,
+      "description": "Cost centre allocation - business financial tracking"
+    },
+    "office_location": {
+      "tier": 4,
+      "label": "Informational",
+      "threshold": 0.0,
+      "description": "Office location metadata - informational only"
+    },
+    "preferred_name": {
+      "tier": 4,
+      "label": "Informational",
+      "threshold": 0.0,
+      "description": "Preferred name - informational preference"
+    },
+    "notes": {
+      "tier": 4,
+      "label": "Informational",
+      "threshold": 0.0,
+      "description": "General notes field - informational comments"
+    },
+    "created_at": {
+      "tier": 4,
+      "label": "Informational",
+      "threshold": 0.0,
+      "description": "Record creation timestamp - system metadata"
+    },
+    "updated_at": {
+      "tier": 4,
+      "label": "Informational",
+      "threshold": 0.0,
+      "description": "Record update timestamp - system metadata"
+    }
+  }
+}

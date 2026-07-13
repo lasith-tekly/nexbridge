@@ -59,3 +59,6 @@ class NexBridgeState(TypedDict):
 
     # Performance tracking
     processing_start_ms: int
+
+    # Registry selection — set by FastAPI layer, used by classification_node
+    registry_id: Optional[str]  # Registry ID to use; None falls back to default

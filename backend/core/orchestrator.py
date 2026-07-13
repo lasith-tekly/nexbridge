@@ -177,8 +177,9 @@ def classification_node(state: NexBridgeState) -> NexBridgeState:
     field_names = parser.extract_field_names(raw_payload)
     parsed_fields = parser.parse(raw_payload)
 
-    # Initialize registry
-    registry = ClassificationRegistry()
+    # Initialize registry — use registry_id from state if present
+    registry_id = state.get("registry_id", "default")
+    registry = ClassificationRegistry.load(registry_id)
 
     # Classify each field
     classifications = {}
