@@ -4,7 +4,7 @@
 
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
 ![Tests](https://img.shields.io/badge/tests-600%20passing-brightgreen)
-![License: MIT](https://img.shields.io/badge/license-MIT-green)
+![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)
 ![LangGraph](https://img.shields.io/badge/LangGraph-1.0-purple)
 
 ---
@@ -204,4 +204,4 @@ Pull requests are welcome. The `docs/` directory contains the full architecture 
 
 ## License
 
-MIT © Lasith Jayarathne
+Apache 2.0 © Lasith Jayarathne
